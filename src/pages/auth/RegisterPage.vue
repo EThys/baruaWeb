@@ -31,7 +31,7 @@
         <label class="form-label">Email</label>
         <div class="relative">
           <Mail :size="16" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input v-model="form.email" type="email" required placeholder="jean@example.com" class="form-field pl-11" />
+          <input v-model="form.email" type="email" required placeholder="emymuyumbi@gmail.com" class="form-field pl-11" />
         </div>
       </div>
       <div>
