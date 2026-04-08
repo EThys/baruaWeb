@@ -1,0 +1,8 @@
+BARUA — Document de démonstration
+
+Titre: Acte de naissance — Copie intégrale
+Référence: BRW-DEMO-NAISS-0001
+Émetteur: Commune (démo)
+
+Ce fichier sert uniquement à tester le téléchargement / re-téléchargement.
+

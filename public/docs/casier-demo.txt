@@ -1,0 +1,8 @@
+BARUA — Document de démonstration
+
+Titre: Casier judiciaire — Bulletin n°3
+Référence: BRW-DEMO-JUST-0001
+Émetteur: Ministère de la Justice (démo)
+
+Ce fichier sert uniquement à tester le téléchargement / re-téléchargement.
+
