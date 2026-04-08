@@ -10,12 +10,12 @@
       'lg:translate-x-0 lg:relative lg:flex'
     ]">
       <!-- Logo -->
-      <div class="flex items-center gap-3 px-5 h-16 border-b border-white/10 shrink-0">
+      <RouterLink to="/" class="flex items-center gap-3 px-5 h-16 border-b border-white/10 shrink-0 hover:bg-white/5 transition-colors">
         <div class="h-9 w-9 rounded-xl bg-white/95 flex items-center justify-center p-1 ring-1 ring-white/25 shrink-0">
           <img :src="logoBarua" alt="Barua" width="32" height="32" class="h-8 w-8 object-contain" />
         </div>
         <span v-if="sidebarOpen" class="font-display font-bold text-white text-lg tracking-wide transition-opacity duration-200">BARUA</span>
-      </div>
+      </RouterLink>
 
       <!-- Navigation links -->
       <nav class="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
