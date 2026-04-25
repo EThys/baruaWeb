@@ -1,9 +1,8 @@
 {
-  "rewrites": [
-    {
-      "source": "/api/v1/:path*",
-      "destination": "http://91.99.168.226:8098/api/v1/:path*"
+  "functions": {
+    "api/v1/[...path].js": {
+      "runtime": "nodejs20.x"
     }
-  ]
+  }
 }
 
