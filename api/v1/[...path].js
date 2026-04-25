@@ -1,6 +1,6 @@
 const ORIGIN = 'http://91.99.168.226:8098'
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
     const path = Array.isArray(req.query?.path) ? req.query.path.join('/') : (req.query?.path ?? '')
     const url = `${ORIGIN}/api/v1/${path}${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`

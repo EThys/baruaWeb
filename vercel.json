@@ -1,9 +1,13 @@
 {
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+  "functions": {
+    "api/v1/[...path].js": {
+      "runtime": "nodejs20.x"
     }
+  },
+  "routes": [
+    { "src": "/api/v1/(.*)", "dest": "/api/v1/[...path].js" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
 
