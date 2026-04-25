@@ -1,26 +1,41 @@
 const ORIGIN = 'http://91.99.168.226:8098'
 
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = []
+    req.on('data', (c) => chunks.push(c))
+    req.on('end', () => resolve(Buffer.concat(chunks)))
+    req.on('error', reject)
+  })
+}
+
 module.exports = async function handler(req, res) {
   try {
-    const path = Array.isArray(req.query?.path) ? req.query.path.join('/') : (req.query?.path ?? '')
-    const url = `${ORIGIN}/api/v1/${path}${req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''}`
+    const originalUrl = req.url || '/'
+    const u = new URL(originalUrl, 'https://vercel.local')
+    const prefix = '/api/v1/'
+    const path = u.pathname.startsWith(prefix) ? u.pathname.slice(prefix.length) : u.pathname.replace(/^\//, '')
+    const url = `${ORIGIN}/api/v1/${path}${u.search}`
 
     const headers = new Headers()
     for (const [k, v] of Object.entries(req.headers || {})) {
       if (!v) continue
       const key = k.toLowerCase()
       // Ne pas forward certains headers hop-by-hop.
-      if (['host', 'connection', 'content-length'].includes(key)) continue
+      if (['host', 'connection', 'content-length', 'accept-encoding'].includes(key)) continue
       headers.set(k, Array.isArray(v) ? v.join(',') : String(v))
     }
 
     const method = req.method || 'GET'
-    const body = method === 'GET' || method === 'HEAD' ? undefined : req.body
+    const body =
+      method === 'GET' || method === 'HEAD'
+        ? undefined
+        : await readRawBody(req)
 
     const upstream = await fetch(url, {
       method,
       headers,
-      body: body ? (typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body)) : undefined,
+      body,
     })
 
     res.statusCode = upstream.status
@@ -36,7 +51,10 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     res.statusCode = 502
     res.setHeader('content-type', 'application/json; charset=utf-8')
-    res.end(JSON.stringify({ message: 'Proxy API error', error: e instanceof Error ? e.message : String(e) }))
+    res.end(JSON.stringify({
+      message: 'Proxy API error',
+      error: e instanceof Error ? e.message : String(e),
+    }))
   }
 }
 
