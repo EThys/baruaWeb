@@ -80,18 +80,22 @@
             <div class="flex-1 min-w-0 bg-rdc-blue" />
             <div class="flex-1 min-w-0 bg-rdc-red" />
           </div>
-          <div class="bg-white flex border-x border-gray-100/50">
+          <div class="bg-white grid grid-cols-5 border-x border-gray-100/50">
             <RouterLink
-              v-for="cat in mainCategories"
-              :key="cat.id"
-              :to="`/services/${cat.slug}`"
-              class="flex-1 p-8 flex flex-col items-center justify-center text-center gap-4 hover:bg-brand/5 border-r border-gray-100 last:border-0 transition-all duration-300 group"
+              v-for="(t, idx) in heroDocumentTypes"
+              :key="t.documentTypeId"
+              :to="{ path: '/services', query: { docTypeId: String(t.documentTypeId) } }"
+              class="p-7 flex flex-col items-center justify-center text-center gap-4 hover:bg-brand/5 transition-all duration-300 group border-gray-100"
+              :class="{
+                'border-r': idx % 5 !== 4,
+                'border-b': idx < 5,
+              }"
             >
               <div class="w-16 h-16 rounded-2xl bg-brand/5 border border-brand/10 flex items-center justify-center group-hover:bg-brand/10 transition-colors duration-300 text-brand mb-1">
-                <component :is="catIcon(cat.icon)" :size="32" stroke-width="1.5" />
+                <FileText :size="32" stroke-width="1.5" />
               </div>
               <div class="flex flex-col items-center">
-                <p class="font-semibold text-gray-800 text-sm group-hover:text-brand transition-colors">{{ cat.name }}</p>
+                <p class="font-semibold text-gray-800 text-sm group-hover:text-brand transition-colors">{{ t.name }}</p>
               </div>
             </RouterLink>
           </div>
@@ -271,11 +275,17 @@
             <div class="bg-white rounded-3xl border border-gray-100 shadow-card overflow-hidden flex flex-col w-full h-full min-h-0">
               <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
                 <p class="text-sm font-semibold text-gray-900">Communes</p>
-                <span class="text-xs text-gray-500">{{ communes.length }}</span>
+                <RouterLink
+                  to="/localites"
+                  class="text-xs font-semibold text-brand hover:underline"
+                  aria-label="Voir toutes les localités"
+                >
+                  Voir tout
+                </RouterLink>
               </div>
               <div class="p-3 flex-1 min-h-0 overflow-y-auto">
                 <button
-                  v-for="c in communes"
+                  v-for="c in communes.slice(0, 8)"
                   :key="c.id"
                   type="button"
                   @click="selectedCommuneId = c.id"
@@ -294,10 +304,16 @@
                   <div class="min-w-0 flex-1">
                     <div class="text-sm font-semibold text-gray-900 truncate">{{ c.label }}</div>
                     <div class="text-xs text-gray-500 mt-0.5">
-                      {{ (communeToServiceIds[c.id]?.length ?? 0) }} service(s)
+                      {{ servicesPreviewCount }} service(s) (aperçu)
                     </div>
                   </div>
                 </button>
+                <div v-if="communes.length > 8" class="p-2">
+                  <RouterLink to="/localites" class="btn-outline btn-sm w-full justify-center text-brand border-brand/20 hover:bg-brand/5 font-medium">
+                    Rechercher une commune / mairie / ville
+                    <ArrowRight :size="16" class="ml-1.5" />
+                  </RouterLink>
+                </div>
               </div>
             </div>
           </div>
@@ -398,45 +414,30 @@ import {
 import { useServicesStore } from '@/stores/services'
 import ServiceCard from '@/components/services/ServiceCard.vue'
 import PartnersMarquee from '@/components/home/PartnersMarquee.vue'
+import { usePublicDocumentsStore } from '@/stores/publicDocuments'
+import { usePublicOrganismsStore } from '@/stores/publicOrganisms'
 
 import animalImg from '@/assets/Animal.jfif'
 import armoiryImg from '@/assets/armoiry.png'
 
 const store  = useServicesStore()
+const publicDocsStore = usePublicDocumentsStore()
+const organismsStore = usePublicOrganismsStore()
 const router = useRouter()
 
 const categories     = store.categories
-const mainCategories = computed(() => categories.filter(c => ['education', 'emploi-securite-sociale', 'etat-civil', 'fiscalite', 'agriculture'].includes(c.slug)))
 const popularServices = store.popularServices
 const searchQuery    = ref('')
+const heroDocumentTypes = publicDocsStore.heroDocumentTypes
 
-// ─── Communes de Kinshasa (demo mapping) ────────────────────────────────────
-const communes = [
-  { id: 'gombe', label: 'Gombe' },
-  { id: 'limete', label: 'Limete' },
-  { id: 'kalamu', label: 'Kalamu' },
-  { id: 'lemba', label: 'Lemba' },
-  { id: 'ngaliema', label: 'Ngaliema' },
-  { id: 'masina', label: 'Masina' },
-  { id: 'kimbanseke', label: 'Kimbanseke' },
-  { id: 'ndjili', label: 'N’djili' },
-]
-
-const communeToServiceIds: Record<string, string[]> = {
-  gombe: ['svc-001', 'svc-003', 'svc-010'],
-  limete: ['svc-001', 'svc-002'],
-  kalamu: ['svc-001', 'svc-010'],
-  lemba: ['svc-002'],
-  ngaliema: ['svc-003', 'svc-010'],
-  masina: ['svc-001'],
-  kimbanseke: ['svc-001', 'svc-002'],
-  ndjili: ['svc-010'],
-}
-
-const selectedCommuneId = ref<string>('gombe')
+// ─── Communes de Kinshasa (API) ─────────────────────────────────────────────
+const communes = computed(() => organismsStore.communes.map(c => ({ id: c.id, label: c.name })))
+const selectedCommuneId = ref<number | null>(null)
+const servicesPreviewCount = computed(() => Math.min(4, store.services.length))
 const communeServices = computed(() => {
-  const ids = communeToServiceIds[selectedCommuneId.value] ?? []
-  return store.services.filter(s => ids.includes(s.id)).slice(0, 4)
+  // Tant que le backend ne fournit pas la relation Commune -> Services,
+  // on affiche un aperçu cohérent (les 4 premiers services).
+  return store.services.slice(0, 4)
 })
 
 // ─── Parallax : scroll global (Communes) + par section (Comment ça marche + CTA) ─
@@ -504,6 +505,14 @@ function onReduceMotionChange() {
 }
 
 onMounted(() => {
+  store.fetchServicesFromPublicDocuments()
+  publicDocsStore.fetchDocumentTypes()
+  organismsStore.fetchOrganisms().then(() => {
+    if (selectedCommuneId.value == null && communes.value.length) {
+      selectedCommuneId.value = communes.value[0].id
+    }
+  })
+
   mq = window.matchMedia('(prefers-reduced-motion: reduce)')
   reduceMotion.value = mq.matches
   mq.addEventListener('change', onReduceMotionChange)
