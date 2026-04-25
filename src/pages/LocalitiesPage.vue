@@ -107,7 +107,7 @@ const typeId = ref<string>('')
 
 const availableTypes = computed(() => {
   const map = new Map<number, { id: number; name: string }>()
-  for (const o of organisms.value) {
+  for (const o of (Array.isArray(organisms.value) ? organisms.value : [])) {
     if (o.type?.id && o.type?.name) map.set(o.type.id, { id: o.type.id, name: o.type.name })
   }
   return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'fr'))
@@ -116,7 +116,7 @@ const availableTypes = computed(() => {
 const filtered = computed(() => {
   const qq = q.value.trim().toLowerCase()
   const tid = Number(typeId.value)
-  return organisms.value
+  return (Array.isArray(organisms.value) ? organisms.value : [])
     .filter(o => (Number.isFinite(tid) && tid > 0 ? o.type?.id === tid : true))
     .filter(o => (qq ? o.name.toLowerCase().includes(qq) : true))
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'))

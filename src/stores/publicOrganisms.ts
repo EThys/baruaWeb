@@ -10,7 +10,7 @@ export const usePublicOrganismsStore = defineStore('publicOrganisms', () => {
   const hydrated = ref(false)
 
   const communes = computed(() =>
-    organisms.value
+    (Array.isArray(organisms.value) ? organisms.value : [])
       .filter(o => o.type?.name?.toLowerCase() === 'commune' || o.type?.id === 2)
       .sort((a, b) => a.name.localeCompare(b.name, 'fr')),
   )
@@ -23,7 +23,8 @@ export const usePublicOrganismsStore = defineStore('publicOrganisms', () => {
     loading.value = true
     error.value = null
     try {
-      organisms.value = await getPublicOrganisms()
+      const res = await getPublicOrganisms()
+      organisms.value = Array.isArray(res) ? res : []
       hydrated.value = true
       return organisms.value
     } catch (e) {
