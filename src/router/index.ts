@@ -58,6 +58,12 @@ const router = createRouter({
           component: () => import('@/pages/FaqPage.vue'),
           meta: { title: 'FAQ — Barua' },
         },
+        {
+          path: 'localites',
+          name: 'localities',
+          component: () => import('@/pages/LocalitiesPage.vue'),
+          meta: { title: 'Localités — Barua' },
+        },
       ],
     },
 
