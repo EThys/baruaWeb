@@ -434,11 +434,15 @@ import {
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import { usePublicDocumentsStore } from '@/stores/publicDocuments'
+import { useServicesStore } from '@/stores/services'
 import ToastStack from '@/components/ui/ToastStack.vue'
 import logoBarua from '@/assets/logoBarua.png'
 
 const auth = useAuthStore()
 const ui   = useUIStore()
+const publicDocs = usePublicDocumentsStore()
+const servicesStore = useServicesStore()
 const router = useRouter()
 const route = useRoute()
 
@@ -501,7 +505,13 @@ async function handleLogout() {
   router.push('/')
 }
 
-onMounted(() => document.addEventListener('click', handleClickOutside))
+onMounted(() => {
+  // Pré-chargement pour éviter un "flash" de contenu vide sur la Home.
+  publicDocs.fetchDocumentTypes()
+  servicesStore.fetchServicesFromPublicDocuments()
+
+  document.addEventListener('click', handleClickOutside)
+})
 onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 </script>
 
