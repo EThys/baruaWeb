@@ -4,6 +4,8 @@ export interface User {
   firstName: string
   lastName: string
   email: string
+  /** Ex: @Longoria (API backend) */
+  username?: string
   phone?: string
   nationalId?: string
   dateOfBirth?: string
@@ -32,7 +34,46 @@ export interface RegisterPayload {
   email: string
   password: string
   confirmPassword: string
-  phone?: string
+  /** Pseudo affiché côté API (ex: Longoria → @Longoria) — optionnel */
+  pseudo?: string
+  phone: string
+  city: string
+}
+
+/** Réponses brutes backend `/auth/*` (pas le wrapper ApiResponse) */
+export interface BackendRegisterResponse {
+  user?: {
+    userId: number
+    email: string
+    username?: string
+    phone?: string
+    city?: string
+    firstName: string
+    lastName: string
+    isPremium?: boolean
+    isCertified?: boolean
+  }
+  message?: string
+}
+
+export interface BackendLoginResponse {
+  member: {
+    user: {
+      userId: number
+      email: string
+      username?: string
+      phone?: string
+      city?: string
+      firstName: string
+      lastName: string
+      isPremium?: boolean
+      isCertified?: boolean
+    }
+    profile?: Array<{ id?: number; name?: string; typeAccount?: { typeAccountId?: number; name?: string } }>
+  }
+  token: string
+  refresh_token?: string
+  message?: string
 }
 
 // ─── Service Categories ───────────────────────────────────────────────────────

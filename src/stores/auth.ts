@@ -1,16 +1,54 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { User, LoginPayload, RegisterPayload } from '@/types'
-import { apiPost } from '@/services/api'
+import type { User, LoginPayload, RegisterPayload, BackendLoginResponse, BackendRegisterResponse } from '@/types'
+import authApi from '@/services/authApi'
+
+function extractApiMessage(e: unknown): string | undefined {
+  const err = e as { response?: { data?: { message?: string } } }
+  return err.response?.data?.message
+}
+
+/** Messages API EN → FR pour l’UX */
+function normalizeAuthErrorMessage(raw: string | undefined): string {
+  if (!raw) return 'Une erreur est survenue.'
+  const s = raw.trim()
+  if (/invalid credentials/i.test(s)) return 'Identifiant ou mot de passe incorrect.'
+  return s
+}
+
+function mapProfileToRole(profile: BackendLoginResponse['member']['profile']): User['role'] {
+  const name = profile?.[0]?.name?.toLowerCase()
+  if (name === 'citoyen' || name === 'citizen') return 'citizen'
+  if (name === 'commune_admin') return 'commune_admin'
+  if (name === 'ministry_admin') return 'ministry_admin'
+  if (name === 'super_admin') return 'super_admin'
+  return 'citizen'
+}
+
+function mapBackendUserToAppUser(
+  u: BackendLoginResponse['member']['user'],
+  profile?: BackendLoginResponse['member']['profile'],
+): User {
+  return {
+    id: String(u.userId),
+    email: u.email,
+    username: u.username,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    phone: u.phone,
+    city: u.city,
+    role: mapProfileToRole(profile),
+    isVerified: Boolean(u.isCertified),
+    createdAt: new Date().toISOString(),
+  }
+}
 
 export const useAuthStore = defineStore('auth', () => {
-  // ─── State ───────────────────────────────────────────────────────────────
   const user = ref<User | null>(JSON.parse(localStorage.getItem('barua_user') || 'null'))
   const token = ref<string | null>(localStorage.getItem('barua_token'))
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // ─── Getters ─────────────────────────────────────────────────────────────
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const fullName = computed(() =>
     user.value ? `${user.value.firstName} ${user.value.lastName}` : '',
@@ -20,7 +58,6 @@ export const useAuthStore = defineStore('auth', () => {
     return `${user.value.firstName[0]}${user.value.lastName[0]}`.toUpperCase()
   })
 
-  // ─── Actions ─────────────────────────────────────────────────────────────
   function _persist(u: User, t: string) {
     user.value = u
     token.value = t
@@ -32,11 +69,17 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const res = await apiPost<{ user: User; token: string }>('/auth/login', payload)
-      if (res.success) _persist(res.data.user, res.data.token)
-      return res
+      // POST /auth/login — backend uniquement en POST
+      const { data } = await authApi.post<BackendLoginResponse>('/auth/login', {
+        identifiant: payload.email.trim(),
+        password: payload.password,
+      })
+      const mapped = mapBackendUserToAppUser(data.member.user, data.member.profile)
+      _persist(mapped, data.token)
+      if (data.refresh_token) localStorage.setItem('barua_refresh_token', data.refresh_token)
+      return { ok: true as const, message: data.message }
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Erreur de connexion'
+      const msg = normalizeAuthErrorMessage(extractApiMessage(e))
       error.value = msg
       throw e
     } finally {
@@ -44,15 +87,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Inscription : l’API renvoie `user` + `message` (pas de token).
+   * Erreurs ex. `{ "message":"Mot de passe invalide." }` si confirmPassword ≠ password côté serveur.
+   */
   async function register(payload: RegisterPayload) {
     loading.value = true
     error.value = null
     try {
-      const res = await apiPost<{ user: User; token: string }>('/auth/register', payload)
-      if (res.success) _persist(res.data.user, res.data.token)
-      return res
+      // POST /auth/register — backend uniquement en POST
+      const { data } = await authApi.post<BackendRegisterResponse>('/auth/register', {
+        email: payload.email.trim(),
+        password: payload.password,
+        confirmPassword: payload.confirmPassword,
+        pseudo: (payload.pseudo ?? '').trim(),
+        phone: payload.phone.trim(),
+        city: payload.city.trim(),
+        firstName: payload.firstName.trim(),
+        lastName: payload.lastName.trim(),
+      })
+      const msg = data.message ?? 'Compte créé.'
+      return { ok: true as const, message: msg }
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Erreur d\'inscription'
+      const msg = normalizeAuthErrorMessage(extractApiMessage(e))
       error.value = msg
       throw e
     } finally {
@@ -63,12 +120,12 @@ export const useAuthStore = defineStore('auth', () => {
   async function updateProfile(data: Partial<User>) {
     loading.value = true
     try {
-      const res = await apiPost<User>('/auth/profile', data)
-      if (res.success) {
-        user.value = res.data
-        localStorage.setItem('barua_user', JSON.stringify(res.data))
+      const { data: body } = await authApi.post<User>('/auth/profile', data)
+      if (body && typeof body === 'object' && 'email' in body) {
+        user.value = body
+        localStorage.setItem('barua_user', JSON.stringify(body))
       }
-      return res
+      return { success: true as const, data: body }
     } finally {
       loading.value = false
     }
@@ -79,9 +136,9 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     localStorage.removeItem('barua_user')
     localStorage.removeItem('barua_token')
+    localStorage.removeItem('barua_refresh_token')
   }
 
-  // Demo login (no API needed in dev)
   function demoLogin() {
     const demoUser: User = {
       id: 'demo-1',
