@@ -25,6 +25,12 @@ const api: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+function normalizeRelativeUrl(url: string): string {
+  // Axios ignore `baseURL` when `url` starts with `/`.
+  // We want `/api/v1` + `public/foo` (not `/public/foo`).
+  return url.startsWith('/') ? url.slice(1) : url
+}
+
 // ─── Request Interceptor ───────────────────────────────────────────────────
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -41,7 +47,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const reqUrl = String(error.config?.url ?? '')
+    const isAuthAttempt =
+      reqUrl.includes('/auth/login') || reqUrl.includes('/auth/register')
+    if (error.response?.status === 401 && !isAuthAttempt) {
       localStorage.removeItem('barua_token')
       localStorage.removeItem('barua_user')
       window.location.href = '/auth/login'
@@ -52,27 +61,27 @@ api.interceptors.response.use(
 
 // ─── Typed helpers ────────────────────────────────────────────────────────
 export async function apiGet<T>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
-  const { data } = await api.get<ApiResponse<T>>(url, { params })
+  const { data } = await api.get<ApiResponse<T>>(normalizeRelativeUrl(url), { params })
   return data
 }
 
 export async function apiPost<T>(url: string, payload?: unknown): Promise<ApiResponse<T>> {
-  const { data } = await api.post<ApiResponse<T>>(url, payload)
+  const { data } = await api.post<ApiResponse<T>>(normalizeRelativeUrl(url), payload)
   return data
 }
 
 export async function apiPut<T>(url: string, payload?: unknown): Promise<ApiResponse<T>> {
-  const { data } = await api.put<ApiResponse<T>>(url, payload)
+  const { data } = await api.put<ApiResponse<T>>(normalizeRelativeUrl(url), payload)
   return data
 }
 
 export async function apiDelete<T>(url: string): Promise<ApiResponse<T>> {
-  const { data } = await api.delete<ApiResponse<T>>(url)
+  const { data } = await api.delete<ApiResponse<T>>(normalizeRelativeUrl(url))
   return data
 }
 
 export async function apiPostForm<T>(url: string, formData: FormData): Promise<ApiResponse<T>> {
-  const { data } = await api.post<ApiResponse<T>>(url, formData, {
+  const { data } = await api.post<ApiResponse<T>>(normalizeRelativeUrl(url), formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data
