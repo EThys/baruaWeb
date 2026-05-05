@@ -12,6 +12,7 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
+    // Dev : équivalent `nitro.devProxy` (Casa dashboard) — pas utilisé en prod (Nginx fait le proxy).
     proxy: {
       '/api/v1': {
         target: 'http://91.99.168.226:8098',

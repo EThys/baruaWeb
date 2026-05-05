@@ -3,8 +3,9 @@ import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'a
 import type { ApiResponse } from '@/types'
 
 /**
- * En prod sur HTTPS (Vercel), une URL `http://…` dans VITE_API_URL est “baked” au build
- * et provoque du mixed content. On n’accepte en prod que HTTPS absolu ou un chemin relatif.
+ * Prod HTTPS : une URL `http://…` dans VITE_API_URL (build) provoque du mixed content.
+ * Comme Casa (`apiBase: "/api"` + proxy serveur), on utilise en prod un chemin relatif
+ * same-origin (`/api/v1`) et un reverse proxy Nginx vers le backend HTTP.
  */
 const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
 
