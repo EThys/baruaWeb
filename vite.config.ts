@@ -17,6 +17,10 @@ export default defineConfig({
         target: 'http://91.99.168.226:8098',
         changeOrigin: true,
       },
+      '/auth': {
+        target: 'http://91.99.168.226:8098',
+        changeOrigin: true,
+      },
     },
   },
   build: {
