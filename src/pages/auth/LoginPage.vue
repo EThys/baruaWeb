@@ -11,11 +11,31 @@
     </div>
 
     <form @submit.prevent="handleLogin" class="space-y-4">
+      <p
+        v-if="route.query.verified === '1'"
+        class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900 mb-4"
+      >
+        Votre compte est validé. Vous pouvez vous connecter.
+      </p>
+      <p
+        v-else-if="route.query.registered === '1'"
+        class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-900 mb-4"
+      >
+        Compte créé. Un code de vérification a été envoyé à votre adresse e-mail : confirmez-le, puis connectez-vous.
+      </p>
       <div>
-        <label class="form-label">Adresse email</label>
+        <label class="form-label">Email ou identifiant</label>
         <div class="relative">
           <Mail :size="16" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input v-model="form.email" type="email" required placeholder="emymuyumbi@gmail.com" class="form-field pl-11" />
+          <input
+            v-model="form.email"
+            type="text"
+            autocomplete="username"
+            placeholder="email@exemple.com ou @Pseudo"
+            class="form-field pl-11"
+            :class="fieldErrors.email ? 'ring-1 ring-red-400/35 border-red-300' : ''"
+          />
+          <p v-if="fieldErrors.email" class="form-error text-xs mt-1">{{ fieldErrors.email }}</p>
         </div>
       </div>
       <div>
@@ -25,7 +45,15 @@
         </div>
         <div class="relative">
           <LockKeyhole :size="16" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input v-model="form.password" :type="showPassword ? 'text' : 'password'" required placeholder="••••••••" class="form-field pl-11 pr-11" />
+          <input
+            v-model="form.password"
+            :type="showPassword ? 'text' : 'password'"
+            autocomplete="current-password"
+            placeholder="••••••••"
+            class="form-field pl-11 pr-11"
+            :class="fieldErrors.password ? 'ring-1 ring-red-400/35 border-red-300' : ''"
+          />
+          <p v-if="fieldErrors.password" class="form-error text-xs mt-1">{{ fieldErrors.password }}</p>
           <button type="button" @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700">
             <Eye v-if="!showPassword" :size="17" />
             <EyeOff v-else :size="17" />
@@ -87,16 +115,33 @@ const router = useRouter()
 const route  = useRoute()
 
 const form         = reactive({ email: '', password: '' })
+const fieldErrors  = reactive({ email: '', password: '' })
 const showPassword = ref(false)
 const loading      = ref(false)
 const error        = ref('')
 
+function validateLogin(): boolean {
+  fieldErrors.email = ''
+  fieldErrors.password = ''
+  let ok = true
+  if (!form.email.trim()) {
+    fieldErrors.email = 'Saisissez votre e-mail ou identifiant.'
+    ok = false
+  }
+  if (!form.password) {
+    fieldErrors.password = 'Saisissez votre mot de passe.'
+    ok = false
+  }
+  return ok
+}
+
 async function handleLogin() {
+  if (!validateLogin()) return
   loading.value = true
   error.value   = ''
   try {
-    await auth.login({ email: form.email, password: form.password })
-    ui.toast.success('Bienvenue !', `Bonjour ${auth.fullName}`)
+    const res = await auth.login({ email: form.email, password: form.password })
+    ui.toast.success('Bienvenue !', res.message || `Bonjour ${auth.fullName}`)
     const redirect = (route.query.redirect as string) || '/dashboard'
     router.push(redirect)
   } catch {

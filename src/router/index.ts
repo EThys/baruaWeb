@@ -91,6 +91,12 @@ const router = createRouter({
           component: () => import('@/pages/auth/ForgotPasswordPage.vue'),
           meta: { title: 'Mot de passe oublié — Barua', guest: true },
         },
+        {
+          path: 'verify-email',
+          name: 'verify-email',
+          component: () => import('@/pages/auth/VerifyEmailPage.vue'),
+          meta: { title: 'Valider le compte — Barua', guest: true },
+        },
       ],
     },
 

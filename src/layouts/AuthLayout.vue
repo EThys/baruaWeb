@@ -7,7 +7,7 @@
     <div class="absolute -bottom-48 -left-48 w-[520px] h-[520px] bg-primary-200/20 rounded-full blur-[110px] pointer-events-none"></div>
 
     <div class="relative z-10 page-container py-10 lg:py-16">
-      <div class="mx-auto max-w-5xl">
+      <div class="mx-auto" :class="shellMaxClass">
         <!-- One joined container (brand + form) -->
         <div class="relative overflow-hidden rounded-[2rem] border border-gray-200 bg-white shadow-card">
           <div class="absolute inset-0 jacquard-bg opacity-[0.05] pointer-events-none"></div>
@@ -78,8 +78,15 @@
 </template>
 
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 import logoBarua from '@/assets/logoBarua.png'
+
+const route = useRoute()
+/** Formulaire inscription plus large que connexion / OTP */
+const shellMaxClass = computed(() =>
+  route.name === 'register' ? 'max-w-7xl w-full' : 'max-w-5xl',
+)
 </script>
 
 <style scoped>
