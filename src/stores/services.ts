@@ -14,6 +14,7 @@ export const useServicesStore = defineStore('services', () => {
   const hydratedFromApi = ref(false)
   const searchQuery = ref('')
   const activeCategory = ref<string | null>(null)
+  const CACHE_KEY = 'barua_public_documents_cache_v1'
 
   function publicDocumentToService(doc: PublicDocument, idx: number): Service {
     const slug = docTypeIdToCategorySlug(doc.type.documentTypeId)
@@ -58,10 +59,27 @@ export const useServicesStore = defineStore('services', () => {
     try {
       const docs = await getPublicDocuments()
       services.value = docs.map((d, i) => publicDocumentToService(d, i))
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(docs))
+      } catch {
+        // ignore
+      }
       hydratedFromApi.value = true
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Erreur de chargement'
-      // fallback: on garde les SERVICES mock
+      // fallback: cache -> SERVICES mock
+      try {
+        const raw = localStorage.getItem(CACHE_KEY)
+        if (raw) {
+          const cached = JSON.parse(raw) as unknown
+          if (Array.isArray(cached)) {
+            const docs = cached as PublicDocument[]
+            services.value = docs.map((d, i) => publicDocumentToService(d, i))
+          }
+        }
+      } catch {
+        // ignore
+      }
       hydratedFromApi.value = false
     } finally {
       loading.value = false
