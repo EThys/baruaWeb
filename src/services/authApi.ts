@@ -8,8 +8,21 @@ import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'a
  * Important : le **backend** attend du **POST** avec JSON sur ces URLs.
  * Le navigateur affiche la page SPA avec un **GET** sur `/auth/login` — c’est la route Vue, pas l’API.
  */
+const envAuth = (import.meta.env.VITE_AUTH_URL as string | undefined)?.trim()
+
+function resolveAuthBaseUrl(): string {
+  // If you deploy backend on its own HTTPS origin (ex: https://backend.baruaofficiel.com),
+  // set VITE_AUTH_URL accordingly. Otherwise keep empty for same-origin reverse-proxy setups.
+  if (import.meta.env.PROD) {
+    if (envAuth?.startsWith('https://')) return envAuth.replace(/\/+$/, '')
+    if (envAuth?.startsWith('/')) return envAuth.replace(/\/+$/, '')
+    return ''
+  }
+  return (envAuth?.replace(/\/+$/, '') ?? '')
+}
+
 export const authApi: AxiosInstance = axios.create({
-  baseURL: '',
+  baseURL: resolveAuthBaseUrl(),
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
 })

@@ -15,11 +15,11 @@ export default defineConfig({
     // Dev : équivalent `nitro.devProxy` (Casa dashboard) — pas utilisé en prod (Nginx fait le proxy).
     proxy: {
       '/api/v1': {
-        target: 'http://91.99.168.226:8098',
+        target: 'https://backend.baruaofficiel.com',
         changeOrigin: true,
       },
       '/auth': {
-        target: 'http://91.99.168.226:8098',
+        target: 'https://backend.baruaofficiel.com',
         changeOrigin: true,
       },
     },
