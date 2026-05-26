@@ -13,7 +13,9 @@
           <img :src="logoBarua" alt="Barua" width="32" height="32" class="h-8 w-8 object-contain" />
         </div>
         <div v-if="sidebarOpen" class="leading-tight">
-          <p class="font-display font-bold text-white text-base tracking-wide">Administration</p>
+          <p class="font-display font-bold text-white text-base tracking-wide">
+            {{ auth.isSuperAdmin ? 'Super-admin' : 'Administration' }}
+          </p>
           <p class="text-xs text-blue-200 -mt-0.5">Barua</p>
         </div>
       </RouterLink>
@@ -36,7 +38,18 @@
       </nav>
 
       <div class="border-t border-white/10 p-3 space-y-1 shrink-0">
-        <RouterLink to="/dashboard" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-blue-200 hover:bg-white/10 hover:text-white transition-all text-sm font-medium">
+        <RouterLink
+          to="/admin/profil"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-blue-200 hover:bg-white/10 hover:text-white transition-all text-sm font-medium"
+        >
+          <UserCircle :size="19" class="shrink-0" />
+          <span v-if="sidebarOpen">Mon profil</span>
+        </RouterLink>
+        <RouterLink
+          v-if="!auth.isSuperAdmin"
+          to="/dashboard"
+          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-blue-200 hover:bg-white/10 hover:text-white transition-all text-sm font-medium"
+        >
           <LayoutDashboard :size="19" class="shrink-0" />
           <span v-if="sidebarOpen">Espace citoyen</span>
         </RouterLink>
@@ -94,7 +107,9 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
-import { FileArchive, FileText, LayoutDashboard, LogOut, Menu, Users, UserCircle } from 'lucide-vue-next'
+import {
+  FileArchive, FilePlus2, FileText, LayoutDashboard, LogOut, Menu, Users, UserCircle, Landmark,
+} from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import logoBarua from '@/assets/logoBarua.png'
@@ -108,36 +123,51 @@ const sidebarOpen = ref(true)
 const mobileSidebarOpen = ref(false)
 
 const navLinks = computed(() => {
-  const role = auth.user?.role
-  const base = [
+  if (auth.isSuperAdmin) {
+    return [
+      { to: '/admin', label: 'Tableau de bord', icon: LayoutDashboard },
+      { to: '/admin/utilisateurs', label: 'Utilisateurs', icon: Users },
+      { to: '/admin/documents', label: 'Documents', icon: FileArchive },
+      { to: '/admin/services-documentaires', label: 'Services documentaires', icon: FilePlus2 },
+      { to: '/admin/demandes', label: 'Demandes', icon: FileText },
+      { to: '/admin/organismes', label: 'Communes', icon: Landmark },
+      { to: '/admin/roles', label: 'Rôles & accès', icon: Users },
+    ]
+  }
+
+  const links = [
     { to: '/admin', label: 'Vue d’ensemble', icon: LayoutDashboard },
     { to: '/admin/demandes', label: 'Demandes', icon: FileText },
-    { to: '/admin/documents', label: 'Archives', icon: FileArchive },
+    { to: '/admin/documents', label: 'Documents', icon: FileArchive },
   ]
-  if (role === 'super_admin') {
-    base.push({ to: '/admin/roles', label: 'Rôles & accès', icon: Users })
+  if (auth.canManageServiceDocumentaires) {
+    links.splice(1, 0, {
+      to: '/admin/services-documentaires',
+      label: 'Services documentaires',
+      icon: FilePlus2,
+    })
   }
-  return base
+  return links
 })
 
 const routeTitles: Record<string, { title: string; sub: string }> = {
-  'admin-home': { title: 'Administration', sub: 'Pilotage des services et archives' },
+  'admin-home': { title: 'Administration', sub: 'Pilotage de la plateforme' },
+  'admin-users': { title: 'Utilisateurs', sub: 'Liste et attribution des rôles' },
+  'admin-organisms': { title: 'Communes', sub: 'Activité par organisme' },
   'admin-requests': { title: 'Demandes', sub: 'Valider, annuler, demander des compléments' },
   'admin-request-detail': { title: 'Détail demande', sub: 'Analyse et décision' },
-  'admin-documents': { title: 'Archives', sub: 'Recherche et gestion des documents' },
-  'admin-roles': { title: 'Rôles & accès', sub: 'Définition des rôles (super-admin)' },
+  'admin-documents': { title: 'Documents', sub: 'Liste du référentiel documentaire' },
+  'admin-roles': { title: 'Rôles & accès', sub: 'Types de comptes plateforme' },
+  'admin-service-documentaires': {
+    title: 'Services documentaires',
+    sub: 'Liste et création des offres',
+  },
+  'admin-profile': { title: 'Mon profil', sub: 'Informations et mot de passe' },
 }
 
 const pageTitle = computed(() => routeTitles[route.name as string]?.title ?? 'Administration')
 const pageSub = computed(() => routeTitles[route.name as string]?.sub ?? '')
-
-const roleLabel = computed(() => {
-  const r = auth.user?.role
-  if (r === 'commune_admin') return 'Admin commune'
-  if (r === 'ministry_admin') return 'Admin ministère'
-  if (r === 'super_admin') return 'Super-admin'
-  return r ?? ''
-})
+const roleLabel = computed(() => auth.roleLabel)
 
 function isActive(to: string) {
   if (to === '/admin') return route.path === '/admin'
@@ -155,4 +185,3 @@ async function handleLogout() {
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
-
