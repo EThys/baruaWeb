@@ -1,5 +1,11 @@
 const STORAGE_KEY = 'barua_otp_identifier'
+const CREDENTIALS_KEY = 'barua_pending_login_credentials'
 const COOKIE_NAME = 'barua_pending_verify'
+
+export interface PendingLoginCredentials {
+  email: string
+  password: string
+}
 
 /** Session navigateur : pas de httpOnly (le backend ne set pas de cookie ici). */
 export function persistPendingVerification(email: string) {
@@ -33,6 +39,39 @@ function readCookie(name: string): string | null {
   }
 }
 
+/** Mot de passe conservé le temps du parcours inscription → validation OTP (session uniquement). */
+export function persistPendingLoginCredentials(email: string, password: string) {
+  try {
+    const payload: PendingLoginCredentials = {
+      email: email.trim(),
+      password,
+    }
+    sessionStorage.setItem(CREDENTIALS_KEY, JSON.stringify(payload))
+  } catch {
+    // ignore private mode
+  }
+}
+
+export function readPendingLoginCredentials(): PendingLoginCredentials | null {
+  try {
+    const raw = sessionStorage.getItem(CREDENTIALS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PendingLoginCredentials
+    if (!parsed?.email?.trim() || !parsed.password) return null
+    return { email: parsed.email.trim(), password: parsed.password }
+  } catch {
+    return null
+  }
+}
+
+export function clearPendingLoginCredentials() {
+  try {
+    sessionStorage.removeItem(CREDENTIALS_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 export function clearPendingVerification() {
   try {
     sessionStorage.removeItem(STORAGE_KEY)
@@ -40,4 +79,10 @@ export function clearPendingVerification() {
     // ignore
   }
   document.cookie = `${COOKIE_NAME}=;path=/;max-age=0`
+}
+
+/** Nettoie e-mail OTP + identifiants temporaires (fin du parcours inscription). */
+export function clearPendingRegistrationSession() {
+  clearPendingVerification()
+  clearPendingLoginCredentials()
 }
