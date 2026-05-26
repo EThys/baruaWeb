@@ -1,6 +1,11 @@
 import axios from 'axios'
-import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
+
+/** Mettre `skipAuth: true` pour les appels publics (ex. reset mot de passe après OTP). */
+export interface ApiRequestConfig extends InternalAxiosRequestConfig {
+  skipAuth?: boolean
+}
 
 /**
  * Prod HTTPS : une URL `http://…` dans VITE_API_URL (build) provoque du mixed content.
@@ -9,8 +14,8 @@ import type { ApiResponse } from '@/types'
  */
 const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
 
-function resolveApiBaseUrl(): string {
-  if (import.meta.env.PROD) {
+function resolveApiBaseUrl(): string { 
+  if (import.meta.env.PROD) { 
     if (envApi?.startsWith('https://')) return envApi
     if (envApi?.startsWith('/')) return envApi
     return '/api/v1'
@@ -35,9 +40,14 @@ function normalizeRelativeUrl(url: string): string {
 // ─── Request Interceptor ───────────────────────────────────────────────────
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('barua_token')
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
+    const cfg = config as ApiRequestConfig
+    if (!cfg.skipAuth) {
+      const token = localStorage.getItem('barua_token')
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    } else if (config.headers) {
+      delete config.headers.Authorization
     }
     return config
   },
@@ -50,7 +60,9 @@ api.interceptors.response.use(
   (error) => {
     const reqUrl = String(error.config?.url ?? '')
     const isAuthAttempt =
-      reqUrl.includes('/auth/login') || reqUrl.includes('/auth/register')
+      reqUrl.includes('/auth/login')
+      || reqUrl.includes('/auth/register')
+      || reqUrl.includes('protected/reset/password')
     if (error.response?.status === 401 && !isAuthAttempt) {
       localStorage.removeItem('barua_token')
       localStorage.removeItem('barua_user')
