@@ -3,6 +3,8 @@ import { ENDPOINTS } from '@/api/endpoints'
 
 export interface OtpMessageResponse {
   message: string
+  token?: string
+  access_token?: string
 }
 
 export async function generatePublicOtp(identifier: string): Promise<OtpMessageResponse> {
