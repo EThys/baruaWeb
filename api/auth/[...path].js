@@ -1,4 +1,4 @@
-const ORIGIN = 'http://91.99.168.226:8098'
+const ORIGIN = 'https://backend.baruaofficiel.com'
 
 function readRawBody(req) {
   return new Promise((resolve, reject) => {
