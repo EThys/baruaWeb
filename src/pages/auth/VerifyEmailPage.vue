@@ -41,10 +41,10 @@
         <AlertCircle :size="13" /> {{ verification.error }}
       </p>
 
-      <button type="submit" class="btn-primary w-full btn-lg" :disabled="verification.loading || !code.trim()">
-        <Loader2 v-if="verification.loading" :size="18" class="animate-spin" />
+      <button type="submit" class="btn-primary w-full btn-lg" :disabled="verification.loading || autoLoggingIn || !code.trim()">
+        <Loader2 v-if="verification.loading || autoLoggingIn" :size="18" class="animate-spin" />
         <ShieldCheck v-else :size="18" />
-        {{ verification.loading ? 'Vérification…' : 'Confirmer le code' }}
+        {{ submitLabel }}
       </button>
     </form>
 
@@ -53,7 +53,7 @@
       <button
         type="button"
         class="btn-outline w-full justify-center"
-        :disabled="verification.loading"
+        :disabled="verification.loading || autoLoggingIn"
         @click="handleResend"
       >
         <RefreshCw :size="16" class="shrink-0" :class="{ 'animate-spin': verification.loading }" />
@@ -72,21 +72,56 @@ import { ref, computed, onMounted } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { AlertCircle, Loader2, RefreshCw, ShieldCheck } from 'lucide-vue-next'
 import { useVerificationStore } from '@/stores/verification'
+import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import {
+  clearPendingLoginCredentials,
+  clearPendingRegistrationSession,
+  readPendingLoginCredentials,
+} from '@/utils/verificationSession'
 
 const route = useRoute()
 const router = useRouter()
 const verification = useVerificationStore()
+const auth = useAuthStore()
 const ui = useUIStore()
 
 const code = ref('')
 const codeError = ref('')
+const autoLoggingIn = ref(false)
 
 const displayEmail = computed(() => verification.identifier || 'votre adresse')
+
+const submitLabel = computed(() => {
+  if (autoLoggingIn.value) return 'Connexion…'
+  if (verification.loading) return 'Vérification…'
+  return 'Confirmer le code'
+})
 
 function onCodeInput(e: Event) {
   const t = e.target as HTMLInputElement
   code.value = t.value.replace(/\D/g, '')
+}
+
+async function tryAutoLoginAfterVerification(email: string): Promise<boolean> {
+  const pending = readPendingLoginCredentials()
+  if (!pending || pending.email.toLowerCase() !== email.toLowerCase()) {
+    return false
+  }
+
+  autoLoggingIn.value = true
+  try {
+    const res = await auth.login({ email: pending.email, password: pending.password })
+    clearPendingLoginCredentials()
+    ui.toast.success('Bienvenue !', res.message ?? `Bonjour ${auth.fullName}`)
+    await router.push(auth.defaultHomeRoute())
+    return true
+  } catch {
+    clearPendingRegistrationSession()
+    return false
+  } finally {
+    autoLoggingIn.value = false
+  }
 }
 
 async function handleValidate() {
@@ -101,12 +136,22 @@ async function handleValidate() {
     codeError.value = 'Le code semble incomplet.'
     return
   }
+
+  const email = verification.identifier?.trim()
+  if (!email) {
+    verification.error = 'Adresse e-mail manquante.'
+    return
+  }
+
   try {
     const res = await verification.confirmCode(code.value)
-    ui.toast.success('Compte validé', res?.message ?? 'Vous pouvez vous connecter.')
-    router.push({ path: '/auth/login', query: { verified: '1' } })
+    const loggedIn = await tryAutoLoginAfterVerification(email)
+    if (!loggedIn) {
+      ui.toast.success('Compte validé', res?.message ?? 'Vous pouvez vous connecter.')
+      router.push({ path: '/auth/login', query: { verified: '1' } })
+    }
   } catch {
-    // erreurs locales / API déjà dans verification.error sauf throw sans message
+    // erreurs locales / API déjà dans verification.error
   }
 }
 
