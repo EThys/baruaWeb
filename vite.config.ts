@@ -1,6 +1,28 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import type { ProxyOptions } from 'vite'
+
+/** Spring renvoie « Invalid CORS request » si Origin = localhost alors que Host = backend. */
+function backendProxy(target: string, opts?: { spaGetBypass?: boolean }): ProxyOptions {
+  return {
+    target,
+    changeOrigin: true,
+    configure(proxy) {
+      proxy.on('proxyReq', (proxyReq) => {
+        proxyReq.removeHeader('origin')
+        proxyReq.removeHeader('referer')
+      })
+    },
+    ...(opts?.spaGetBypass
+      ? {
+          bypass(req) {
+            if (req.method === 'GET') return '/index.html'
+          },
+        }
+      : {}),
+  }
+}
 
 export default defineConfig({
   plugins: [vue()],
@@ -14,14 +36,8 @@ export default defineConfig({
     open: true,
     // Dev : équivalent `nitro.devProxy` (Casa dashboard) — pas utilisé en prod (Nginx fait le proxy).
     proxy: {
-      '/api/v1': {
-        target: 'https://backend.baruaofficiel.com',
-        changeOrigin: true,
-      },
-      '/auth': {
-        target: 'https://backend.baruaofficiel.com',
-        changeOrigin: true,
-      },
+      '/api/v1': backendProxy('https://backend.baruaofficiel.com'),
+      '/auth': backendProxy('https://backend.baruaofficiel.com', { spaGetBypass: true }),
     },
   },
   build: {
