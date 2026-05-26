@@ -1,7 +1,21 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { User, LoginPayload, RegisterPayload, BackendLoginResponse, BackendRegisterResponse } from '@/types'
+import type {
+  User,
+  UserRole,
+  UserAccountProfile,
+  LoginPayload,
+  RegisterPayload,
+  BackendLoginResponse,
+  BackendLoginProfile,
+  BackendRegisterResponse,
+} from '@/types'
 import authApi from '@/services/authApi'
+import {
+  accountRoleLabel,
+  communeAdminProfile,
+  resolveRoleFromProfiles,
+} from '@/utils/accountRole'
 
 function extractApiMessage(e: unknown): string | undefined {
   const err = e as { response?: { data?: { message?: string } } }
@@ -16,19 +30,28 @@ function normalizeAuthErrorMessage(raw: string | undefined): string {
   return s
 }
 
-function mapProfileToRole(profile: BackendLoginResponse['member']['profile']): User['role'] {
-  const name = profile?.[0]?.name?.toLowerCase()
-  if (name === 'citoyen' || name === 'citizen') return 'citizen'
-  if (name === 'commune_admin') return 'commune_admin'
-  if (name === 'ministry_admin') return 'ministry_admin'
-  if (name === 'super_admin') return 'super_admin'
-  return 'citizen'
+function mapProfiles(raw: BackendLoginProfile[] | undefined): UserAccountProfile[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map(p => ({
+    accountId: p.account.id,
+    accountName: p.account.name,
+    typeAccountId: p.account.typeAccount.typeAccountId,
+    typeAccountName: p.account.typeAccount.name,
+    organismId: p.organism?.id,
+    organismName: p.organism?.name,
+    organismCity: p.organism?.city,
+  }))
 }
 
 function mapBackendUserToAppUser(
   u: BackendLoginResponse['member']['user'],
-  profile?: BackendLoginResponse['member']['profile'],
+  rawProfiles?: BackendLoginProfile[],
 ): User {
+  const profiles = mapProfiles(rawProfiles)
+  const role = resolveRoleFromProfiles(profiles)
+  const primary = profiles.find(p => resolveRoleFromProfiles([p]) === role) ?? profiles[0]
+  const communeProfile = communeAdminProfile(profiles)
+
   return {
     id: String(u.userId),
     email: u.email,
@@ -37,17 +60,48 @@ function mapBackendUserToAppUser(
     lastName: u.lastName,
     phone: u.phone,
     city: u.city,
-    role: mapProfileToRole(profile),
+    role,
+    profiles,
+    accountId: primary?.accountId,
+    accountName: primary?.accountName,
+    typeAccountName: primary?.typeAccountName,
+    adminOrganismId: communeProfile?.organismId,
+    adminOrganismName: communeProfile?.organismName,
     isVerified: Boolean(u.isCertified),
     createdAt: new Date().toISOString(),
   }
 }
 
+const STAFF_ROLES: UserRole[] = ['commune_admin', 'ministry_admin', 'super_admin']
+
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(JSON.parse(localStorage.getItem('barua_user') || 'null'))
+  const user = ref<User | null>(rehydrateStoredUser())
   const token = ref<string | null>(localStorage.getItem('barua_token'))
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  function rehydrateStoredUser(): User | null {
+    try {
+      const raw = localStorage.getItem('barua_user')
+      if (!raw) return null
+      const parsed = JSON.parse(raw) as User
+      if (!parsed?.id) return null
+      // Recalcul du rôle si profils présents (corrige un ancien stockage incorrect)
+      if (parsed.profiles?.length) {
+        parsed.role = resolveRoleFromProfiles(parsed.profiles)
+        const commune = communeAdminProfile(parsed.profiles)
+        parsed.adminOrganismId = commune?.organismId
+        parsed.adminOrganismName = commune?.organismName
+        const primary = parsed.profiles.find(p => resolveRoleFromProfiles([p]) === parsed.role) ?? parsed.profiles[0]
+        parsed.accountId = primary?.accountId
+        parsed.accountName = primary?.accountName
+        parsed.typeAccountName = primary?.typeAccountName
+      }
+      return parsed
+    } catch {
+      return null
+    }
+  }
 
   const isAuthenticated = computed(() => !!token.value && !!user.value)
   const fullName = computed(() =>
@@ -57,6 +111,28 @@ export const useAuthStore = defineStore('auth', () => {
     if (!user.value) return ''
     return `${user.value.firstName[0]}${user.value.lastName[0]}`.toUpperCase()
   })
+
+  const isCitizen = computed(() => user.value?.role === 'citizen')
+
+  const isStaff = computed(() =>
+    user.value != null && STAFF_ROLES.includes(user.value.role),
+  )
+
+  const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
+
+  const canManageServiceDocumentaires = computed(() => isStaff.value)
+
+  const canManageDocuments = computed(() => isStaff.value)
+
+  const canManageDocumentTypes = computed(() => isSuperAdmin.value)
+
+  const roleLabel = computed(() =>
+    user.value ? accountRoleLabel(user.value.role) : '',
+  )
+
+  function defaultHomeRoute(): string {
+    return isStaff.value ? '/admin' : '/dashboard'
+  }
 
   function _persist(u: User, t: string) {
     user.value = u
@@ -69,7 +145,6 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      // POST /auth/login — backend uniquement en POST
       const { data } = await authApi.post<BackendLoginResponse>('/auth/login', {
         identifiant: payload.email.trim(),
         password: payload.password,
@@ -77,7 +152,7 @@ export const useAuthStore = defineStore('auth', () => {
       const mapped = mapBackendUserToAppUser(data.member.user, data.member.profile)
       _persist(mapped, data.token)
       if (data.refresh_token) localStorage.setItem('barua_refresh_token', data.refresh_token)
-      return { ok: true as const, message: data.message }
+      return { ok: true as const, message: data.message, user: mapped }
     } catch (e: unknown) {
       const msg = normalizeAuthErrorMessage(extractApiMessage(e))
       error.value = msg
@@ -87,15 +162,10 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  /**
-   * Inscription : l’API renvoie `user` + `message` (pas de token).
-   * Erreurs ex. `{ "message":"Mot de passe invalide." }` si confirmPassword ≠ password côté serveur.
-   */
   async function register(payload: RegisterPayload) {
     loading.value = true
     error.value = null
     try {
-      // POST /auth/register — backend uniquement en POST
       const { data } = await authApi.post<BackendRegisterResponse>('/auth/register', {
         email: payload.email.trim(),
         password: payload.password,
@@ -139,39 +209,13 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('barua_refresh_token')
   }
 
-  function demoLogin() {
-    const demoUser: User = {
-      id: 'demo-1',
-      firstName: 'Emy',
-      lastName: 'Mayumbi',
-      email: 'emy.mayumbi@example.com',
-      phone: '+243 90 00 00 00',
-      nationalId: 'CD-2024-000001',
-      role: 'citizen',
-      isVerified: true,
-      createdAt: new Date().toISOString(),
-    }
-    _persist(demoUser, 'demo-token-123')
-  }
-
-  function demoAdminLogin(role: User['role'] = 'super_admin') {
-    const demoUser: User = {
-      id: `demo-admin-${role}`,
-      firstName: 'Admin',
-      lastName: role === 'super_admin' ? 'Super' : role === 'ministry_admin' ? 'Ministère' : 'Commune',
-      email: 'admin@example.com',
-      phone: '+243 00 00 00 00',
-      nationalId: 'ADMIN-DEMO-0001',
-      role,
-      isVerified: true,
-      createdAt: new Date().toISOString(),
-    }
-    _persist(demoUser, 'demo-admin-token-456')
-  }
-
   return {
     user, token, loading, error,
     isAuthenticated, fullName, initials,
-    login, register, logout, updateProfile, demoLogin, demoAdminLogin,
+    isCitizen, isStaff, isSuperAdmin,
+    canManageServiceDocumentaires, canManageDocuments, canManageDocumentTypes,
+    roleLabel,
+    defaultHomeRoute,
+    login, register, logout, updateProfile,
   }
 })
