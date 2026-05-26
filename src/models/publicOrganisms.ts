@@ -8,6 +8,7 @@ export interface PublicOrganism {
   id: number
   type: PublicOrganismType
   name: string
+  city?: string
   description: string | null
 }
 
