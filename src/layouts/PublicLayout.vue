@@ -179,6 +179,14 @@
                     <RouterLink to="/dashboard/profil" class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-brand transition-colors" @click="userMenuOpen = false">
                       <UserCircle :size="15" /> Mon profil
                     </RouterLink>
+                    <RouterLink
+                      v-if="auth.isStaff"
+                      to="/admin"
+                      class="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-primary-50 hover:text-brand transition-colors"
+                      @click="userMenuOpen = false"
+                    >
+                      <LayoutDashboard :size="15" /> Administration
+                    </RouterLink>
                   </div>
                   <div class="border-t border-gray-100 mt-1 pt-1 pb-1">
                     <button @click="handleLogout" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
