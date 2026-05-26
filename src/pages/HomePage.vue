@@ -142,9 +142,19 @@
             </RouterLink>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div v-if="servicesLoading && !popularServices.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div v-for="i in 3" :key="i" class="rounded-xl border border-gray-200 bg-white p-5">
+              <div class="h-4 w-2/3 bg-gray-100 rounded animate-pulse" />
+              <div class="h-3 w-full bg-gray-100 rounded mt-3 animate-pulse" />
+              <div class="h-3 w-5/6 bg-gray-100 rounded mt-2 animate-pulse" />
+            </div>
+          </div>
+          <div v-else-if="popularServices.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             <ServiceCard v-for="service in popularServices" :key="service.id" :service="service" />
           </div>
+          <p v-else class="text-sm text-gray-500 text-center py-8">
+            Aucun service disponible pour le moment.
+          </p>
 
           <!-- Mobile only CTA -->
           <div class="text-center mt-10 sm:hidden">
@@ -304,7 +314,7 @@
                   <div class="min-w-0 flex-1">
                     <div class="text-sm font-semibold text-gray-900 truncate">{{ c.label }}</div>
                     <div class="text-xs text-gray-500 mt-0.5">
-                      {{ servicesPreviewCount }} service(s) (aperçu)
+                      {{ serviceCountForCommune(c.id, c.label) }} service(s)
                     </div>
                   </div>
                 </button>
@@ -331,7 +341,10 @@
                     Jusqu’à 4 services affichés — voir l’annuaire complet pour plus.
                   </p>
                 </div>
-                <RouterLink to="/services" class="btn-outline text-brand border-brand/20 hover:bg-brand/5 font-medium shrink-0">
+                <RouterLink
+                  :to="servicesLinkForSelectedCommune"
+                  class="btn-outline text-brand border-brand/20 hover:bg-brand/5 font-medium shrink-0"
+                >
                   Voir tous les services <ArrowRight :size="16" class="ml-1.5" />
                 </RouterLink>
               </div>
@@ -405,6 +418,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { RouterLink, useRouter } from 'vue-router'
 import {
   ArrowRight, FileText, GraduationCap, Briefcase, Heart, Scale,
@@ -421,23 +435,43 @@ import animalImg from '@/assets/Animal.jfif'
 import armoiryImg from '@/assets/armoiry.png'
 
 const store  = useServicesStore()
+const { popularServices, loading: servicesLoading } = storeToRefs(store)
 const publicDocsStore = usePublicDocumentsStore()
 const organismsStore = usePublicOrganismsStore()
 const router = useRouter()
 
-const categories     = store.categories
-const popularServices = store.popularServices
+const categories = store.categories
 const searchQuery    = ref('')
 const heroDocumentTypes = publicDocsStore.heroDocumentTypes
 
 // ─── Communes de Kinshasa (API) ─────────────────────────────────────────────
 const communes = computed(() => organismsStore.communes.map(c => ({ id: c.id, label: c.name })))
 const selectedCommuneId = ref<number | null>(null)
-const servicesPreviewCount = computed(() => Math.min(4, store.services.length))
+function serviceCountForCommune(id: number, name: string) {
+  return store.countServicesForLocality(id, name)
+}
+
+const selectedCommune = computed(() =>
+  communes.value.find(c => c.id === selectedCommuneId.value) ?? null,
+)
+
 const communeServices = computed(() => {
-  // Tant que le backend ne fournit pas la relation Commune -> Services,
-  // on affiche un aperçu cohérent (les 4 premiers services).
-  return store.services.slice(0, 4)
+  const c = selectedCommune.value
+  if (!c) return []
+  return store.getServicesForLocality(c.id, c.label, 4)
+})
+
+const servicesLinkForSelectedCommune = computed(() => {
+  const c = selectedCommune.value
+  if (!c) return { path: '/services' }
+  return {
+    path: '/services',
+    query: {
+      localityId: String(c.id),
+      localityName: c.label,
+      localityType: 'Commune',
+    },
+  }
 })
 
 // ─── Parallax : scroll global (Communes) + par section (Comment ça marche + CTA) ─
