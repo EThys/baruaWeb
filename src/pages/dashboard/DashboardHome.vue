@@ -5,7 +5,7 @@
       <div>
         <p class="text-blue-200 text-sm mb-1">Bonjour 👋</p>
         <h1 class="font-display font-bold text-2xl">{{ auth.fullName || 'Citoyen' }}</h1>
-        <p class="text-blue-100 text-sm mt-1">{{ today }}</p>
+        <p class="text-blue-100 text-sm mt-1">{{ today }} · {{ auth.roleLabel }}</p>
       </div>
       <div class="hidden sm:flex items-center gap-2 bg-white/15 rounded-xl px-4 py-3">
         <Shield :size="20" class="text-yellow-300" />
