@@ -66,7 +66,7 @@ export const useVerificationStore = defineStore('verification', () => {
     }
   }
 
-  async function confirmCode(code: string) {
+  async function confirmCode(code: string, opts?: { keepIdentifier?: boolean }) {
     if (!identifier.value) {
       error.value = 'Adresse e-mail manquante.'
       throw new Error('missing-identifier')
@@ -81,8 +81,10 @@ export const useVerificationStore = defineStore('verification', () => {
     try {
       const res = await validatePublicOtp(identifier.value, code)
       lastInfoMessage.value = res.message
-      clearPendingVerification()
-      identifier.value = ''
+      if (!opts?.keepIdentifier) {
+        clearPendingVerification()
+        identifier.value = ''
+      }
       return res
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
