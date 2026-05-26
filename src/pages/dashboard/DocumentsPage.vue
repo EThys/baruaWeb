@@ -37,7 +37,7 @@
               <span v-if="d.ministry" class="mx-2">•</span>
               <span>{{ formatDate(d.createdAt) }}</span>
               <span class="mx-2">•</span>
-              <span>{{ d.downloads }} téléchargement(s)</span>
+              <span>{{ d.downloads }} téléchargement</span>
             </p>
 
             <div class="flex flex-wrap gap-2 mt-3">

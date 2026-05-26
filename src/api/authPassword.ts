@@ -16,6 +16,7 @@ export async function changePassword(newPassword: string): Promise<Record<string
   return data
 }
 
+
 /** Réinitialisation après validation OTP — corps strict `{ newPassword }` uniquement. */
 export async function resetPassword(newPassword: string): Promise<Record<string, string>> {
   const body: UserPasswordBody = { newPassword }
