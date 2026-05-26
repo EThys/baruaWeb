@@ -90,19 +90,9 @@
     <div class="card p-6 relative overflow-hidden">
       <div class="absolute inset-0 jacquard-bg opacity-[0.03] pointer-events-none" />
       <h3 class="font-semibold text-gray-900 mb-4 relative">Sécurité</h3>
-      <div class="flex items-center justify-between py-3 border-b border-gray-100 relative">
-        <div>
-          <p class="text-sm font-medium text-gray-800">Mot de passe</p>
-          <p class="text-xs text-gray-400">Dernière modification il y a 3 mois</p>
-        </div>
-        <button class="btn-outline btn-sm">Modifier</button>
-      </div>
-      <div class="flex items-center justify-between py-3 relative">
-        <div>
-          <p class="text-sm font-medium text-gray-800">Double authentification</p>
-          <p class="text-xs text-gray-400">Renforcez la sécurité de votre compte</p>
-        </div>
-        <button class="btn-outline btn-sm">Activer</button>
+      <p class="text-sm text-gray-500 mb-4 relative">Modifiez votre mot de passe (connexion requise).</p>
+      <div class="relative max-w-md">
+        <ChangePasswordForm />
       </div>
     </div>
   </div>
@@ -112,6 +102,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { CreditCard, Loader2, LogOut, Mail, Phone, ShieldCheck, User } from 'lucide-vue-next'
+import ChangePasswordForm from '@/components/auth/ChangePasswordForm.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 
