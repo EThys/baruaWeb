@@ -192,6 +192,7 @@ import { AlertCircle, Eye, EyeOff, Loader2, LockKeyhole, Mail, MapPin, ShieldChe
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { useVerificationStore } from '@/stores/verification'
+import { persistPendingLoginCredentials } from '@/utils/verificationSession'
 
 const auth   = useAuthStore()
 const ui     = useUIStore()
@@ -308,12 +309,14 @@ async function handleRegister() {
       city: form.city, phone: fullCdE164Phone(form.phoneLocal),
       password: form.password, confirmPassword: form.confirmPassword,
     })
-    verify.setIdentifier(form.email.trim())
+    const email = form.email.trim()
+    verify.setIdentifier(email)
+    persistPendingLoginCredentials(email, form.password)
     ui.toast.success('Inscription', res.message)
     // Un seul envoi d’OTP : l’e-mail vient de l’inscription. Pas d’appel /otp/generate ici.
     router.push({
       name: 'verify-email',
-      query: { identifier: form.email.trim() },
+      query: { identifier: email },
     })
   } catch {
     error.value = auth.error ?? 'Erreur lors de la création du compte.'
