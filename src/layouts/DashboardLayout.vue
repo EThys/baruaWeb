@@ -134,7 +134,7 @@ import { ref, computed } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import {
   Bell, ChevronRight, FileText, Home, LogOut,
-  Search, UserCircle, Plus, Menu
+  Search, UserCircle, Plus, Menu, LayoutDashboard
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
@@ -151,13 +151,27 @@ const router   = useRouter()
 const sidebarOpen       = ref(true)
 const mobileSidebarOpen = ref(false)
 
-const navLinks = computed(() => [
-  { to: '/dashboard',                  label: 'Tableau de bord', icon: Home,     badge: null },
-  { to: '/dashboard/documents',        label: 'Mes documents',   icon: FileText, badge: null },
-  { to: '/dashboard/mes-demandes',     label: 'Mes demandes',    icon: FileText, badge: requests.activeRequests.length || null },
-  { to: '/dashboard/notifications',    label: 'Notifications',   icon: Bell,     badge: ui.unreadCount || null },
-  { to: '/services',                   label: 'Nouveau service',  icon: Plus,     badge: null },
-])
+const navLinks = computed(() => {
+  const links = [
+    { to: '/dashboard',                  label: 'Tableau de bord', icon: Home,     badge: null },
+    { to: '/dashboard/documents',        label: 'Mes documents',   icon: FileText, badge: null },
+    { to: '/dashboard/mes-demandes',     label: 'Mes demandes',    icon: FileText, badge: requests.activeRequests.length || null },
+    { to: '/dashboard/notifications',    label: 'Notifications',   icon: Bell,     badge: ui.unreadCount || null },
+    { to: '/services',                   label: 'Parcourir les services', icon: Plus, badge: null },
+  ]
+  if (auth.isStaff) {
+    links.push({ to: '/admin', label: 'Administration', icon: LayoutDashboard, badge: null })
+    if (auth.canManageServiceDocumentaires) {
+      links.push({
+        to: '/admin/services-documentaires',
+        label: 'Créer un service',
+        icon: Plus,
+        badge: null,
+      })
+    }
+  }
+  return links
+})
 
 const routeTitles: Record<string, { title: string; sub: string }> = {
   'dashboard':    { title: 'Tableau de bord', sub: 'Vue d\'ensemble de vos démarches' },
