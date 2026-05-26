@@ -1,0 +1,1 @@
+import{n as o,t as n}from"./endpoints-Dt_6uV8C.js";async function e(t){const a={newPassword:t},{data:s}=await o.put(n.protectedChangePassword,a);return s}async function c(t){const a={newPassword:t},{data:s}=await o.put(n.protectedResetPassword,a,{skipAuth:!0});return s}export{c as n,e as t};

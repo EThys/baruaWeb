@@ -1,0 +1,1 @@
+import{n as a,t as c}from"./endpoints-Dt_6uV8C.js";async function s(t){const{data:n}=await a.post(c.privateServicesDocumentaires,t);return n}async function i(){const{data:t}=await a.get(c.publicAccounts);return t.accounts}export{i as n,s as t};
