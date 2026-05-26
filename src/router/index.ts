@@ -92,6 +92,12 @@ const router = createRouter({
           meta: { title: 'Mot de passe oublié — Barua', guest: true },
         },
         {
+          path: 'reset-password',
+          name: 'reset-password',
+          component: () => import('@/pages/auth/ResetPasswordPage.vue'),
+          meta: { title: 'Réinitialiser le mot de passe — Barua', guest: true },
+        },
+        {
           path: 'verify-email',
           name: 'verify-email',
           component: () => import('@/pages/auth/VerifyEmailPage.vue'),
@@ -179,13 +185,44 @@ const router = createRouter({
           path: 'documents',
           name: 'admin-documents',
           component: () => import('@/pages/admin/AdminDocumentsPage.vue'),
-          meta: { title: 'Archives — Barua' },
+          meta: { title: 'Documents — Barua' },
+        },
+        {
+          path: 'utilisateurs',
+          name: 'admin-users',
+          component: () => import('@/pages/admin/AdminUsersPage.vue'),
+          meta: { title: 'Utilisateurs — Barua', requiresRoles: ['super_admin'] },
+        },
+        {
+          path: 'documents/creer',
+          redirect: { name: 'admin-documents' },
+        },
+        {
+          path: 'organismes',
+          name: 'admin-organisms',
+          component: () => import('@/pages/admin/AdminOrganismsPage.vue'),
+          meta: { title: 'Communes — Barua', requiresRoles: ['super_admin'] },
         },
         {
           path: 'roles',
           name: 'admin-roles',
           component: () => import('@/pages/admin/RolesPage.vue'),
           meta: { title: 'Rôles & permissions — Barua', requiresRoles: ['super_admin'] },
+        },
+        {
+          path: 'profil',
+          name: 'admin-profile',
+          component: () => import('@/pages/dashboard/ProfilePage.vue'),
+          meta: { title: 'Mon profil — Barua' },
+        },
+        {
+          path: 'services-documentaires',
+          name: 'admin-service-documentaires',
+          component: () => import('@/pages/admin/AdminServiceDocumentairesPage.vue'),
+          meta: {
+            title: 'Services documentaires — Barua',
+            requiresRoles: ['commune_admin', 'ministry_admin', 'super_admin'],
+          },
         },
       ],
     },
@@ -211,15 +248,19 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.meta.guest && auth.isAuthenticated) {
-    return { name: 'dashboard' }
+    return { path: auth.defaultHomeRoute() }
   }
 
   const required = (to.meta.requiresRoles as string[] | undefined)
   if (required?.length) {
     const role = auth.user?.role
     if (!role || !required.includes(role)) {
-      return { name: 'dashboard' }
+      return { path: auth.defaultHomeRoute() }
     }
+  }
+
+  if (to.path.startsWith('/admin') && auth.isCitizen) {
+    return { path: '/dashboard' }
   }
 })
 
