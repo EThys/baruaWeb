@@ -13,8 +13,27 @@ export interface User {
   city?: string
   avatar?: string
   role: UserRole
+  /** Profils renvoyés par l’API au login (citoyen, admin commune, super-admin, etc.) */
+  profiles?: UserAccountProfile[]
+  /** Compte actif (ex. id 2 = citoyen) — aligné sur /public/accounts */
+  accountId?: number
+  accountName?: string
+  typeAccountName?: string
+  /** Organisme lié au profil admin commune (ex. Limete) */
+  adminOrganismId?: number
+  adminOrganismName?: string
   isVerified: boolean
   createdAt: string
+}
+
+export interface UserAccountProfile {
+  accountId: number
+  accountName: string
+  typeAccountId: number
+  typeAccountName: string
+  organismId?: number
+  organismName?: string
+  organismCity?: string
 }
 
 export interface AuthState {
@@ -56,6 +75,28 @@ export interface BackendRegisterResponse {
   message?: string
 }
 
+export interface BackendLoginAccount {
+  id: number
+  name: string
+  typeAccount: {
+    typeAccountId: number
+    name: string
+  }
+}
+
+export interface BackendLoginOrganism {
+  id: number
+  city: string
+  name: string
+  description?: string | null
+  type?: { id: number; name: string; description?: string }
+}
+
+export interface BackendLoginProfile {
+  account: BackendLoginAccount
+  organism: BackendLoginOrganism | null
+}
+
 export interface BackendLoginResponse {
   member: {
     user: {
@@ -69,11 +110,50 @@ export interface BackendLoginResponse {
       isPremium?: boolean
       isCertified?: boolean
     }
-    profile?: Array<{ id?: number; name?: string; typeAccount?: { typeAccountId?: number; name?: string } }>
+    profile?: BackendLoginProfile[]
   }
   token: string
   refresh_token?: string
   message?: string
+}
+
+export interface CreateServiceDocumentairePayload {
+  documentId: number
+  organismId: number
+  price: number
+  devise: number
+  delayDayOpen: string
+  description: string
+}
+
+export interface ServiceDocumentaireRecord {
+  serviceDocumentaireId: number
+  documentId: number
+  organismId: number
+  userId: number
+  price: number
+  deviseId: number
+  description: string
+  delayDayOpen: string
+  isActive: boolean
+}
+
+export interface CreateServiceDocumentaireResponse {
+  serviceDocumentaire: ServiceDocumentaireRecord
+  message: string
+}
+
+export interface PublicAccount {
+  id: number
+  name: string
+  typeAccount: {
+    typeAccountId: number
+    name: string
+  }
+}
+
+export interface PublicAccountsResponse {
+  accounts: PublicAccount[]
 }
 
 // ─── Service Categories ───────────────────────────────────────────────────────
@@ -126,7 +206,7 @@ export interface Service {
   eligibility: Eligibility
   estimatedDuration: string // e.g. "3-5 jours ouvrables"
   cost?: number             // en FC, null = gratuit
-  currency: 'FC'
+  currency: 'FC' | 'USD'
   difficulty: ServiceDifficulty
   requiredDocuments: ServiceDocument[]
   steps: ServiceStep[]
@@ -135,6 +215,13 @@ export interface Service {
   isOnline: boolean
   ministry: string
   isPopular?: boolean
+  /** Référence API service documentaire */
+  serviceDocumentaireId?: number
+  documentId?: number
+  organismId?: number
+  organismName?: string
+  organismTypeName?: string
+  organismCity?: string
 }
 
 // ─── Form Builder ─────────────────────────────────────────────────────────────
