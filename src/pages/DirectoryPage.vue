@@ -186,11 +186,15 @@ function matches(entry: DirectoryEntry, q: string) {
 const filteredMinisteres = computed(() => ministeres.filter(o => matches(o, query.value)))
 const filteredOrganismes = computed(() => organismes.filter(o => matches(o, query.value)))
 
-/** Lien cliquable seulement pour +243… ou ligne 151 */
+/** Lien cliquable : +243…, lignes courtes (177, 4020), 151 */
 function phoneHref(phone: string): string | undefined {
-  if (/\b151\b/.test(phone)) return 'tel:151'
-  const m = phone.match(/\+243[\d\s]{8,}/)
-  if (m) return 'tel:' + m[0].replace(/\s/g, '')
+  const trimmed = phone.trim()
+  if (/\b151\b/.test(trimmed)) return 'tel:151'
+  if (/^\d{3,5}$/.test(trimmed)) return `tel:${trimmed}`
+  const m = trimmed.match(/\+243[\d\s().]{8,}/)
+  if (m) return 'tel:' + m[0].replace(/[\s()]/g, '')
+  const local = trimmed.match(/^0\d{9}$/)
+  if (local) return `tel:+243${local[0].slice(1)}`
   return undefined
 }
 
