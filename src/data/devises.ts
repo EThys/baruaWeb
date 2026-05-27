@@ -16,5 +16,12 @@ export function deviseCodeById(deviseId: number): 'FC' | 'USD' {
 
 export function formatServicePrice(price: number, deviseId: number): string {
   if (price <= 0) return '—'
-  return `${price} ${deviseCodeById(deviseId)}`
+  return formatServiceCost(price, deviseCodeById(deviseId))
+}
+
+/** Affichage citoyen : FC ou symbole $ pour USD. */
+export function formatServiceCost(cost: number | undefined, currency: 'FC' | 'USD'): string {
+  if (cost == null || cost <= 0) return 'Gratuit'
+  const n = cost.toLocaleString('fr-FR')
+  return currency === 'USD' ? `${n} $` : `${n} FC`
 }

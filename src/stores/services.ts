@@ -7,6 +7,8 @@ import type { PublicServiceDocumentaire } from '@/models/publicServiceDocumentai
 import { docTypeIdToCategorySlug } from '@/utils/docType'
 import { deviseCodeById } from '@/data/devises'
 import { DEFAULT_PUBLIC_DOCUMENT_TYPES } from '@/data/publicDocumentTypes'
+import { groupServicesByDocument } from '@/utils/serviceCatalog'
+import { formatOrganismPlaceName } from '@/utils/organismDisplay'
 
 function isPlaceholderApiText(value: string | null | undefined): boolean {
   if (!value) return true
@@ -40,10 +42,15 @@ function serviceMatchesLocality(
 
 function organismLabel(svc: PublicServiceDocumentaire): string {
   const { organism } = svc
-  const typeName = organism.type?.name ?? ''
-  const parts = [typeName, organism.name].filter(Boolean)
-  const base = parts.join(' — ')
-  return organism.city ? `${base} (${organism.city})` : base
+  return formatOrganismPlaceName(
+    organism.type?.name,
+    organism.name,
+    organism.city,
+  )
+}
+
+function organismTypeLabel(svc: PublicServiceDocumentaire): string {
+  return svc.organism.type?.name?.trim() ?? ''
 }
 
 export const useServicesStore = defineStore('services', () => {
@@ -90,6 +97,7 @@ export const useServicesStore = defineStore('services', () => {
       tags: [
         typeName,
         doc.title,
+        organismTypeLabel(svc),
         svc.organism.name,
         svc.organism.city,
       ].filter(Boolean),
@@ -180,16 +188,28 @@ export const useServicesStore = defineStore('services', () => {
     return result
   })
 
+  const hasLocalityFilter = computed(
+    () => activeOrganismId.value != null || !!activeOrganismName.value,
+  )
+
+  /** Liste catalogue : 1 carte par type de document (sauf filtre commune). */
+  const catalogServices = computed(() => {
+    if (hasLocalityFilter.value) return filteredServices.value
+    return groupServicesByDocument(filteredServices.value)
+  })
+
+  function getVariantsForDocument(documentId: number): Service[] {
+    return services.value.filter(s => s.documentId === documentId)
+  }
+
   const popularServices = computed(() => {
-    if (activeOrganismId.value != null || activeOrganismName.value) {
+    if (hasLocalityFilter.value) {
       return getServicesForLocality(activeOrganismId.value, activeOrganismName.value, 6)
     }
-    const flagged = services.value.filter(s => s.isPopular)
-    if (flagged.length > 0) return flagged.slice(0, 6)
-    // API chargée : afficher les premiers services même sans flag « populaire »
-    if (hydratedFromApi.value && services.value.length > 0) {
-      return services.value.slice(0, 6)
-    }
+    const catalog = groupServicesByDocument(services.value)
+    const flagged = catalog.filter(s => s.isPopular)
+    if (flagged.length >= 6) return flagged.slice(0, 6)
+    if (catalog.length > 0) return catalog.slice(0, 6)
     return []
   })
 
@@ -234,7 +254,8 @@ export const useServicesStore = defineStore('services', () => {
   return {
     categories, services, loading, error, hydratedFromApi, searchQuery, activeCategory,
     activeOrganismId, activeOrganismName,
-    filteredServices, popularServices, communesFromServices,
+    filteredServices, catalogServices, hasLocalityFilter, popularServices, communesFromServices,
+    getVariantsForDocument,
     getCategoryBySlug, getServiceById, getServicesByCategory,
     getServicesForLocality, countServicesForLocality,
     setSearch, setCategory, setLocalityFilter,

@@ -23,11 +23,11 @@
               <span
                 v-else
                 class="badge-gray"
-              >{{ service.cost?.toLocaleString('fr-FR') }} FC</span>
+              >{{ costLabel }}</span>
               <span class="glass rounded-full px-3 py-1 text-white text-xs flex items-center gap-1">
                 <Clock :size="12" /> {{ service.estimatedDuration }}
               </span>
-              <span class="glass rounded-full px-3 py-1 text-white text-xs">{{ service.ministry }}</span>
+              <span v-if="organismLine" class="glass rounded-full px-3 py-1 text-white text-xs">{{ organismLine }}</span>
             </div>
           </div>
           <RouterLink
@@ -125,7 +125,7 @@
                 <div>
                   <p class="text-gray-400 text-xs">Coût</p>
                   <p class="font-medium text-gray-800">
-                    {{ service.cost === 0 || service.cost === undefined ? 'Gratuit' : `${service.cost?.toLocaleString('fr-FR')} FC` }}
+                    {{ costLabel }}
                   </p>
                 </div>
               </div>
@@ -134,7 +134,7 @@
                   <Landmark :size="15" class="text-brand" />
                 </div>
                 <div>
-                  <p class="text-gray-400 text-xs">Ministère</p>
+                  <p v-if="organismTypeCaption" class="text-gray-400 text-xs">{{ organismTypeCaption }}</p>
                   <p class="font-medium text-gray-800 text-xs leading-snug">{{ service.ministry }}</p>
                 </div>
               </div>
@@ -187,6 +187,11 @@ import {
 } from 'lucide-vue-next'
 import { useServicesStore } from '@/stores/services'
 import { useAuthStore } from '@/stores/auth'
+import { formatServiceCost } from '@/data/devises'
+import {
+  formatOrganismFullLine,
+  formatOrganismTypeCaption,
+} from '@/utils/organismDisplay'
 
 const route   = useRoute()
 const store   = useServicesStore()
@@ -194,5 +199,23 @@ const auth    = useAuthStore()
 
 const service      = computed(() => store.getServiceById(route.params.serviceId as string))
 const categoryName = computed(() => store.getCategoryBySlug(service.value?.categorySlug ?? '')?.name ?? '')
+
+const costLabel = computed(() => {
+  const s = service.value
+  if (!s) return ''
+  if (s.costLabel) return s.costLabel
+  if (s.cost === 0 || s.cost === undefined) return 'Gratuit'
+  return formatServiceCost(s.cost, s.currency)
+})
+
+const organismTypeCaption = computed(() =>
+  formatOrganismTypeCaption(service.value?.organismTypeName),
+)
+
+const organismLine = computed(() => {
+  const s = service.value
+  if (!s) return ''
+  return formatOrganismFullLine(s.organismTypeName, s.organismName, s.organismCity)
+})
 
 </script>

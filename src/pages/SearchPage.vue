@@ -55,6 +55,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Search, FileSearch } from 'lucide-vue-next'
 import { useServicesStore } from '@/stores/services'
+import { groupServicesByDocument } from '@/utils/serviceCatalog'
 import ServiceCard from '@/components/services/ServiceCard.vue'
 
 const route  = useRoute()
@@ -66,13 +67,17 @@ const localQuery = ref(query.value)
 
 const filteredServices = computed(() => {
   const q = query.value.toLowerCase().trim()
-  if (!q) return store.services
-  return store.services.filter(s =>
-    s.title.toLowerCase().includes(q) ||
-    s.shortDescription.toLowerCase().includes(q) ||
-    s.tags.some(t => t.toLowerCase().includes(q)) ||
-    s.ministry.toLowerCase().includes(q),
-  )
+  let list = store.services
+  if (q) {
+    list = list.filter(s =>
+      s.title.toLowerCase().includes(q) ||
+      s.shortDescription.toLowerCase().includes(q) ||
+      s.tags.some(t => t.toLowerCase().includes(q)) ||
+      s.ministry.toLowerCase().includes(q),
+    )
+  }
+  if (store.activeOrganismId != null || store.activeOrganismName) return list
+  return groupServicesByDocument(list)
 })
 
 function doSearch() {

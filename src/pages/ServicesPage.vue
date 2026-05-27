@@ -10,7 +10,7 @@
       />
       <div class="page-container relative">
         <h1 class="font-display font-bold text-white text-3xl mb-2">Tous les services</h1>
-        <p class="text-blue-200 text-sm mb-2">{{ filteredServices.length }} services disponibles</p>
+        <p class="text-blue-200 text-sm mb-2">{{ listHeading }}</p>
         <p v-if="selectedLocalityLabel" class="text-blue-100/90 text-sm mb-6">
           Services pour : <span class="font-semibold">{{ selectedLocalityLabel }}</span>
         </p>
@@ -53,7 +53,7 @@
         Impossible de charger les services depuis l’API. Affichage d’une liste par défaut.
       </div>
 
-      <div v-if="loading && !filteredServices.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div v-if="loading && !displayServices.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         <div v-for="i in 6" :key="i" class="rounded-xl border border-gray-200 bg-white p-5">
           <div class="h-4 w-2/3 bg-gray-100 rounded animate-pulse" />
           <div class="h-3 w-full bg-gray-100 rounded mt-3 animate-pulse" />
@@ -61,7 +61,16 @@
         </div>
       </div>
 
-      <template v-else-if="filteredServices.length">
+      <template v-else-if="displayServices.length">
+        <p
+          v-if="documentPickerTitle"
+          class="text-sm text-gray-600 mb-6 rounded-xl border border-brand/15 bg-brand/5 px-4 py-3"
+        >
+          {{ documentPickerTitle }}
+          <button type="button" class="ml-2 text-brand font-medium underline" @click="clearDocumentFilter">
+            Voir tous les types
+          </button>
+        </p>
         <div
           v-reveal="{ stagger: '> a', staggerMs: 75, variant: 'up', duration: 720 }"
           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
@@ -69,7 +78,7 @@
           <ServiceCard v-for="svc in pagedServices" :key="svc.id" :service="svc" />
         </div>
 
-        <div v-if="filteredServices.length > PAGE_SIZE" class="mt-10 flex items-center justify-center gap-2 flex-wrap">
+        <div v-if="displayServices.length > PAGE_SIZE" class="mt-10 flex items-center justify-center gap-2 flex-wrap">
           <button
             type="button"
             class="btn-outline btn-sm"
@@ -115,7 +124,7 @@
 import { computed, ref, watch, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Search, SearchX } from 'lucide-vue-next'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useServicesStore } from '@/stores/services'
 import ServiceCard from '@/components/services/ServiceCard.vue'
 import { docTypeIdToCategorySlug } from '@/utils/docType'
@@ -124,8 +133,9 @@ import { usePublicDocumentsStore } from '@/stores/publicDocuments'
 import jaguarImg from '@/assets/Jaguar.jfif'
 
 const store = useServicesStore()
-const { filteredServices, loading, error, communesFromServices } = storeToRefs(store)
+const { filteredServices, catalogServices, loading, error, communesFromServices } = storeToRefs(store)
 const route = useRoute()
+const router = useRouter()
 const publicDocs = usePublicDocumentsStore()
 const { documentTypes } = storeToRefs(publicDocs)
 
@@ -139,16 +149,49 @@ const selectedLocalityLabel = computed(() => {
   return type ? `${type} — ${name}` : name
 })
 
+const activeDocumentId = ref<number | null>(null)
+
+const displayServices = computed(() => {
+  if (activeDocumentId.value != null) {
+    return filteredServices.value.filter(s => s.documentId === activeDocumentId.value)
+  }
+  return catalogServices.value
+})
+
+const documentPickerTitle = computed(() => {
+  if (activeDocumentId.value == null) return ''
+  const first = displayServices.value[0]
+  if (!first) return ''
+  const n = displayServices.value.length
+  return `Choisissez votre commune pour « ${first.title} » (${n} offre${n > 1 ? 's' : ''}).`
+})
+
+const listHeading = computed(() => {
+  const n = displayServices.value.length
+  if (activeDocumentId.value != null) {
+    return `${n} commune${n > 1 ? 's' : ''} proposent ce document`
+  }
+  return `${n} type${n > 1 ? 's' : ''} de documents disponibles`
+})
+
 const PAGE_SIZE = 12
 const page = ref(1)
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredServices.value.length / PAGE_SIZE)))
+const totalPages = computed(() => Math.max(1, Math.ceil(displayServices.value.length / PAGE_SIZE)))
 const pages = computed(() => Array.from({ length: totalPages.value }, (_, i) => i + 1))
 const pagedServices = computed(() => {
   const p = Math.min(page.value, totalPages.value)
   const start = (p - 1) * PAGE_SIZE
-  return filteredServices.value.slice(start, start + PAGE_SIZE)
+  return displayServices.value.slice(start, start + PAGE_SIZE)
 })
+
+function clearDocumentFilter() {
+  activeDocumentId.value = null
+  page.value = 1
+  const q = { ...route.query }
+  delete q.documentId
+  router.replace({ query: q })
+}
 
 watch(localSearch, v => {
   store.setSearch(v)
@@ -173,12 +216,14 @@ watch(localCommuneName, name => {
   })
   page.value = 1
 })
-watch(filteredServices, () => {
-  // Si la liste change (API / filtre), on garde la page dans les bornes.
+watch(displayServices, () => {
   if (page.value > totalPages.value) page.value = totalPages.value
 })
 
 function applyRouteFilters() {
+  const documentId = Number(route.query.documentId)
+  activeDocumentId.value = Number.isFinite(documentId) && documentId > 0 ? documentId : null
+
   const docTypeId = Number(route.query.docTypeId)
   if (Number.isFinite(docTypeId) && docTypeId > 0) {
     store.setCategory(docTypeIdToCategorySlug(docTypeId))
@@ -206,7 +251,7 @@ onMounted(() => {
 })
 
 watch(
-  () => [route.query.docTypeId, route.query.localityId, route.query.localityName],
+  () => [route.query.documentId, route.query.docTypeId, route.query.localityId, route.query.localityName],
   () => applyRouteFilters(),
 )
 
@@ -214,6 +259,7 @@ function reset() {
   localSearch.value = ''
   localDocTypeId.value = ''
   localCommuneName.value = ''
+  activeDocumentId.value = null
   store.setSearch('')
   store.setCategory(null)
   store.setLocalityFilter({ organismId: null, organismName: null })

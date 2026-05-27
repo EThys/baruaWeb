@@ -205,8 +205,14 @@ export interface Service {
   description: string
   eligibility: Eligibility
   estimatedDuration: string // e.g. "3-5 jours ouvrables"
-  cost?: number             // en FC, null = gratuit
+  cost?: number
   currency: 'FC' | 'USD'
+  /** Libellé tarif regroupé (ex. « dès 5 000 FC · dès 10 $ ») */
+  costLabel?: string
+  /** Carte catalogue : plusieurs communes pour le même document */
+  isCatalogEntry?: boolean
+  catalogDocumentId?: number
+  offeringCount?: number
   difficulty: ServiceDifficulty
   requiredDocuments: ServiceDocument[]
   steps: ServiceStep[]

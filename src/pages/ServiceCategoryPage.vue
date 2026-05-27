@@ -38,6 +38,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ChevronRight, Inbox } from 'lucide-vue-next'
 import { useServicesStore } from '@/stores/services'
+import { groupServicesByDocument } from '@/utils/serviceCatalog'
 import ServiceCard from '@/components/services/ServiceCard.vue'
 
 import animalImg from '@/assets/Animal.jfif'
@@ -47,5 +48,9 @@ const store = useServicesStore()
 
 const slug             = computed(() => route.params.categorySlug as string)
 const category         = computed(() => store.getCategoryBySlug(slug.value))
-const categoryServices = computed(() => store.getServicesByCategory(slug.value))
+const categoryServices = computed(() => {
+  const list = store.getServicesByCategory(slug.value)
+  if (store.activeOrganismId != null || store.activeOrganismName) return list
+  return groupServicesByDocument(list)
+})
 </script>
