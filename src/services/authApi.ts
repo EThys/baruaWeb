@@ -11,8 +11,7 @@ import type { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'a
 const envAuth = (import.meta.env.VITE_AUTH_URL as string | undefined)?.trim()
 
 function resolveAuthBaseUrl(): string {
-  // If you deploy backend on its own HTTPS origin (ex: https://backend.baruaofficiel.com),
-  // set VITE_AUTH_URL accordingly. Otherwise keep empty for same-origin reverse-proxy setups.
+  // Prod : `VITE_AUTH_URL=https://backend…` (direct) ou vide / chemin relatif (proxy same-origin).
   if (import.meta.env.PROD) {
     if (envAuth?.startsWith('https://')) return envAuth.replace(/\/+$/, '')
     if (envAuth?.startsWith('/')) return envAuth.replace(/\/+$/, '')

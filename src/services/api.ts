@@ -8,9 +8,8 @@ export interface ApiRequestConfig extends InternalAxiosRequestConfig {
 }
 
 /**
- * Prod HTTPS : une URL `http://…` dans VITE_API_URL (build) provoque du mixed content.
- * Comme Casa (`apiBase: "/api"` + proxy serveur), on utilise en prod un chemin relatif
- * same-origin (`/api/v1`) et un reverse proxy Nginx vers le backend HTTP.
+ * Prod : `VITE_API_URL` en `https://…` (appels directs, CORS côté backend)
+ * ou chemin relatif `/api/v1` si un reverse proxy same-origin est configuré.
  */
 const envApi = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
 
