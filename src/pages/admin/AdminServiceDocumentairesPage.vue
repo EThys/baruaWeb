@@ -54,6 +54,7 @@
               <th class="py-3 px-4">Ville</th>
               <th class="py-3 px-4">Prix</th>
               <th class="py-3 px-4">Délai</th>
+              <th v-if="auth.canManageServiceDocumentaires" class="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -78,6 +79,16 @@
                 {{ formatServicePrice(s.price, s.deviseId) }}
               </td>
               <td class="py-3 px-4 text-gray-600">{{ s.delayDayOpen || '—' }}</td>
+              <td v-if="auth.canManageServiceDocumentaires" class="py-3 px-4 text-right">
+                <button
+                  v-if="canEditService(s)"
+                  type="button"
+                  class="btn-outline btn-sm"
+                  @click="openEditModal(s)"
+                >
+                  Modifier
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -87,14 +98,16 @@
       </p>
     </div>
 
-    <!-- Modal création service -->
+    <!-- Modal création / édition service -->
     <div
-      v-if="showCreateModal"
+      v-if="showServiceModal"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-      @click.self="closeCreateModal"
+      @click.self="closeServiceModal"
     >
       <div class="card p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-        <h2 class="font-semibold text-gray-900">Créer un service documentaire</h2>
+        <h2 class="font-semibold text-gray-900">
+          {{ editingService ? 'Modifier le service documentaire' : 'Créer un service documentaire' }}
+        </h2>
         <p class="text-sm text-gray-500">
           Associez un document à un organisme avec tarif et délai.
         </p>
@@ -170,9 +183,9 @@
           <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
 
           <div class="flex gap-3 justify-end pt-2">
-            <button type="button" class="btn-outline" @click="closeCreateModal">Annuler</button>
+            <button type="button" class="btn-outline" @click="closeServiceModal">Annuler</button>
             <button type="submit" class="btn-primary" :disabled="submitting">
-              {{ submitting ? 'Enregistrement…' : 'Créer' }}
+              {{ submitting ? 'Enregistrement…' : (editingService ? 'Enregistrer' : 'Créer') }}
             </button>
           </div>
         </form>
@@ -189,7 +202,7 @@ import { usePublicOrganismsStore } from '@/stores/publicOrganisms'
 import { useUIStore } from '@/stores/ui'
 import { getPublicDocuments } from '@/api/publicDocuments'
 import { getPublicServicesDocumentaires } from '@/api/publicServiceDocumentaire'
-import { createServiceDocumentaire } from '@/api/serviceDocumentaire'
+import { createServiceDocumentaire, updateServiceDocumentaire } from '@/api/serviceDocumentaire'
 import { DEVISE_IDS, DEVISE_OPTIONS, formatServicePrice } from '@/data/devises'
 import type { PublicDocument } from '@/models/publicDocuments'
 import type { PublicServiceDocumentaire } from '@/models/publicServiceDocumentaire'
@@ -204,7 +217,8 @@ const listLoading = ref(true)
 const listError = ref('')
 const listSearch = ref('')
 
-const showCreateModal = ref(false)
+const showServiceModal = ref(false)
+const editingService = ref<PublicServiceDocumentaire | null>(null)
 const formDataLoading = ref(false)
 const submitting = ref(false)
 const formError = ref('')
@@ -260,7 +274,16 @@ function extractErrorMessage(e: unknown): string {
     ?? 'Impossible d’enregistrer le service.'
 }
 
+function canEditService(s: PublicServiceDocumentaire) {
+  const oid = auth.user?.adminOrganismId
+  if (auth.user?.role === 'commune_admin' && oid != null) {
+    return s.organism.id === oid
+  }
+  return true
+}
+
 function resetForm() {
+  editingService.value = null
   form.documentId = 0
   form.organismId = auth.user?.adminOrganismId ?? 0
   form.devise = DEVISE_IDS.FC
@@ -270,8 +293,9 @@ function resetForm() {
   formError.value = ''
 }
 
-function closeCreateModal() {
-  showCreateModal.value = false
+function closeServiceModal() {
+  showServiceModal.value = false
+  editingService.value = null
   formError.value = ''
 }
 
@@ -308,8 +332,32 @@ async function loadFormData() {
 
 async function openCreateModal() {
   resetForm()
-  showCreateModal.value = true
+  showServiceModal.value = true
   await loadFormData()
+}
+
+async function openEditModal(service: PublicServiceDocumentaire) {
+  editingService.value = service
+  form.documentId = service.document.documentId
+  form.organismId = service.organism.id
+  form.devise = service.deviseId
+  form.price = service.price
+  form.delayDayOpen = service.delayDayOpen ?? ''
+  form.description = service.description ?? ''
+  formError.value = ''
+  showServiceModal.value = true
+  await loadFormData()
+}
+
+function servicePayload() {
+  return {
+    documentId: form.documentId,
+    organismId: form.organismId,
+    price: form.price,
+    devise: form.devise,
+    delayDayOpen: form.delayDayOpen.trim(),
+    description: form.description.trim(),
+  }
 }
 
 async function handleSubmit() {
@@ -322,16 +370,15 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    const res = await createServiceDocumentaire({
-      documentId: form.documentId,
-      organismId: form.organismId,
-      price: form.price,
-      devise: form.devise,
-      delayDayOpen: form.delayDayOpen.trim(),
-      description: form.description.trim(),
-    })
-    ui.toast.success('Service créé', res.message || 'Enregistrement réussi.')
-    closeCreateModal()
+    const payload = servicePayload()
+    const res = editingService.value
+      ? await updateServiceDocumentaire(editingService.value.serviceDocumentaireId, payload)
+      : await createServiceDocumentaire(payload)
+    ui.toast.success(
+      editingService.value ? 'Service mis à jour' : 'Service créé',
+      res.message || 'Enregistrement réussi.',
+    )
+    closeServiceModal()
     await Promise.all([
       servicesStore.fetchServicesFromPublicDocuments({ force: true }),
       loadServicesList(),

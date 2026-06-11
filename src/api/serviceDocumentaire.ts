@@ -4,6 +4,7 @@ import type {
   CreateServiceDocumentairePayload,
   CreateServiceDocumentaireResponse,
   PublicAccountsResponse,
+  UpdateServiceDocumentaireResponse,
 } from '@/types'
 
 export async function createServiceDocumentaire(
@@ -11,6 +12,17 @@ export async function createServiceDocumentaire(
 ): Promise<CreateServiceDocumentaireResponse> {
   const { data } = await api.post<CreateServiceDocumentaireResponse>(
     ENDPOINTS.privateServicesDocumentaires,
+    payload,
+  )
+  return data
+}
+
+export async function updateServiceDocumentaire(
+  serviceDocumentaireId: number,
+  payload: CreateServiceDocumentairePayload,
+): Promise<UpdateServiceDocumentaireResponse> {
+  const { data } = await api.put<UpdateServiceDocumentaireResponse>(
+    `${ENDPOINTS.privateServicesDocumentaires}/${serviceDocumentaireId}`,
     payload,
   )
   return data

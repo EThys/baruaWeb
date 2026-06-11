@@ -1,11 +1,7 @@
 {
   "rewrites": [
-    { "source": "/auth/:path*", "destination": "/api/auth/:path*" },
-    { "source": "/api/v1/:path*", "destination": "/api/v1/:path*" }
-  ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "source": "/api/v1/(.*)", "destination": "/api/v1/$1" },
+    { "source": "/auth/(.*)", "destination": "/api/auth/$1" }
   ]
 }
 

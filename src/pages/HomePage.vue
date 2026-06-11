@@ -133,9 +133,13 @@
           <div class="absolute inset-0 -z-10 jacquard-bg opacity-4 pointer-events-none" />
 
           <div class="flex items-center justify-between mb-8 flex-wrap gap-4">
-            <div class="min-w-[220px]">
-              <h2 class="section-title">Services les plus demandés</h2>
-              <p class="section-subtitle">Les démarches que les citoyens utilisent le plus</p>
+            <div>
+              <h2 class="font-display font-bold text-2xl sm:text-3xl text-gray-900">
+                Services les plus demandés
+              </h2>
+              <p class="text-gray-600 text-sm sm:text-base mt-2 max-w-2xl">
+                Les démarches que les citoyens utilisent le plus
+              </p>
             </div>
             <RouterLink to="/services" class="btn-outline hidden sm:inline-flex text-brand border-brand/20 hover:bg-brand/5 font-medium px-5">
               Explorer tous les services <ArrowRight :size="16" class="ml-1.5" />
@@ -267,11 +271,9 @@
       </div>
 
       <div class="page-container relative">
-        <!-- Header (underline design) -->
         <div class="mb-8">
-          <h2 class="font-display font-bold text-2xl sm:text-3xl text-gray-900 inline-flex flex-col">
-            <span>Communes de Kinshasa</span>
-            <span class="mt-2 h-1 w-28 rounded-full bg-gradient-to-r from-brand to-brand-accent"></span>
+          <h2 class="font-display font-bold text-2xl sm:text-3xl text-gray-900">
+            Communes de Kinshasa
           </h2>
           <p class="text-gray-600 text-sm sm:text-base mt-2 max-w-2xl">
             Sélectionnez une commune pour afficher les services disponibles
@@ -335,10 +337,10 @@
               <div class="flex items-center justify-between gap-4 flex-wrap mb-6 shrink-0">
                 <div>
                   <h3 class="font-display font-bold text-xl text-gray-900">
-                    Services — {{ communes.find(c => c.id === selectedCommuneId)?.label }}
+                    Services à {{ communes.find(c => c.id === selectedCommuneId)?.label }}
                   </h3>
                   <p class="text-sm text-gray-600 mt-1">
-                    Jusqu’à 4 services affichés — voir l’annuaire complet pour plus.
+                    Jusqu’à 4 services affichés. Voir l’annuaire complet pour plus.
                   </p>
                 </div>
                 <RouterLink

@@ -35,13 +35,15 @@ export interface CreateDocumentTypeResponse {
   message?: string
 }
 
-export interface CreateDocumentPayload {
+export interface DocumentPayload {
   documentTypeId: number
   title: string
   code?: string
   description?: string
   active?: boolean
 }
+
+export type CreateDocumentPayload = DocumentPayload
 
 export interface CreateDocumentResponse {
   document?: {
@@ -52,6 +54,13 @@ export interface CreateDocumentResponse {
     description?: string | null
     active?: boolean
   }
+  message?: string
+}
+
+export type UpdateDocumentPayload = DocumentPayload
+
+export interface UpdateDocumentResponse {
+  document?: CreateDocumentResponse['document']
   message?: string
 }
 

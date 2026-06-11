@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "description": "Cloudflare Pages : le middleware ne traite pas les assets statiques.",
+  "exclude": [
+    "/assets/*",
+    "/*.css",
+    "/*.js",
+    "/*.svg",
+    "/*.ico",
+    "/*.png",
+    "/*.jpg",
+    "/*.webp",
+    "/docs/*"
+  ]
+}

@@ -52,7 +52,7 @@ function buildCatalogService(documentId: number, variants: Service[]): Service {
         : primary.ministry,
     shortDescription:
       offeringCount > 1
-        ? `Disponible dans ${offeringCount} communes — choisissez la vôtre pour voir tarif et délais.`
+        ? `Disponible dans ${offeringCount} communes. Choisissez la vôtre pour voir tarif et délais.`
         : primary.shortDescription,
   }
 }

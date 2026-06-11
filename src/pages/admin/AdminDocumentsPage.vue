@@ -54,6 +54,7 @@
               <th class="py-3 px-4">Code</th>
               <th class="py-3 px-4">Type</th>
               <th class="py-3 px-4">Description</th>
+              <th v-if="auth.canManageDocuments" class="py-3 px-4 text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -72,6 +73,19 @@
               </td>
               <td class="py-3 px-4 text-gray-600 max-w-xs truncate" :title="d.description || ''">
                 {{ d.description || '—' }}
+              </td>
+              <td v-if="auth.canManageDocuments" class="py-3 px-4 text-right whitespace-nowrap">
+                <button type="button" class="btn-outline btn-sm mr-2" @click="openEditModal(d)">
+                  Modifier
+                </button>
+                <button
+                  type="button"
+                  class="btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50"
+                  :disabled="deactivatingId === d.id"
+                  @click="confirmDeactivate(d)"
+                >
+                  {{ deactivatingId === d.id ? '…' : 'Désactiver' }}
+                </button>
               </td>
             </tr>
           </tbody>
@@ -128,17 +142,21 @@
       </div>
     </div>
 
-    <!-- Modal création document -->
+    <!-- Modal création / édition document -->
     <div
-      v-if="showCreateModal"
+      v-if="showDocumentModal"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-      @click.self="closeCreateModal"
+      @click.self="closeDocumentModal"
     >
       <div class="card p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-        <h2 class="font-semibold text-gray-900">Créer un document</h2>
-        <p class="text-sm text-gray-500">Ajoute une pièce au référentiel (titre, type, description).</p>
+        <h2 class="font-semibold text-gray-900">
+          {{ editingDocument ? 'Modifier le document' : 'Créer un document' }}
+        </h2>
+        <p class="text-sm text-gray-500">
+          {{ editingDocument ? 'Mettez à jour les informations du document.' : 'Ajoute une pièce au référentiel (titre, type, description).' }}
+        </p>
 
-        <form class="space-y-4" @submit.prevent="handleCreate">
+        <form class="space-y-4" @submit.prevent="handleSaveDocument">
           <div>
             <label class="form-label">Type de document</label>
             <select v-model.number="createForm.documentTypeId" class="form-field" required>
@@ -175,12 +193,12 @@
             Document actif
           </label>
 
-          <p v-if="createError" class="text-sm text-red-600">{{ createError }}</p>
+          <p v-if="documentFormError" class="text-sm text-red-600">{{ documentFormError }}</p>
 
           <div class="flex gap-3 justify-end pt-2">
-            <button type="button" class="btn-outline" @click="closeCreateModal">Annuler</button>
-            <button type="submit" class="btn-primary" :disabled="creating">
-              {{ creating ? 'Création…' : 'Créer' }}
+            <button type="button" class="btn-outline" @click="closeDocumentModal">Annuler</button>
+            <button type="submit" class="btn-primary" :disabled="savingDocument">
+              {{ savingDocument ? 'Enregistrement…' : (editingDocument ? 'Enregistrer' : 'Créer') }}
             </button>
           </div>
         </form>
@@ -191,7 +209,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { createAdminDocument, createDocumentType } from '@/api/admin'
+import { createAdminDocument, createDocumentType, updateAdminDocument } from '@/api/admin'
 import { getPublicDocuments, getPublicDocumentTypes } from '@/api/publicDocuments'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
@@ -206,12 +224,14 @@ const loading = ref(true)
 const loadError = ref('')
 const search = ref('')
 
-const showCreateModal = ref(false)
+const showDocumentModal = ref(false)
 const showTypeModal = ref(false)
-const creating = ref(false)
+const savingDocument = ref(false)
 const creatingType = ref(false)
-const createError = ref('')
+const documentFormError = ref('')
 const typeError = ref('')
+const editingDocument = ref<PublicDocument | null>(null)
+const deactivatingId = ref<number | null>(null)
 
 const createForm = reactive({
   documentTypeId: 0,
@@ -239,22 +259,36 @@ const filteredDocuments = computed(() => {
 })
 
 function resetCreateForm() {
+  editingDocument.value = null
   createForm.documentTypeId = 0
   createForm.title = ''
   createForm.code = ''
   createForm.description = ''
   createForm.active = true
-  createError.value = ''
+  documentFormError.value = ''
 }
 
 function openCreateModal() {
   resetCreateForm()
-  showCreateModal.value = true
+  showDocumentModal.value = true
 }
 
-function closeCreateModal() {
-  showCreateModal.value = false
-  createError.value = ''
+function closeDocumentModal() {
+  showDocumentModal.value = false
+  editingDocument.value = null
+  documentFormError.value = ''
+}
+
+async function openEditModal(doc: PublicDocument) {
+  editingDocument.value = doc
+  createForm.documentTypeId = doc.type?.documentTypeId ?? 0
+  createForm.title = doc.title
+  createForm.code = doc.code ?? ''
+  createForm.description = doc.description ?? ''
+  createForm.active = true
+  documentFormError.value = ''
+  showDocumentModal.value = true
+  await ensureDocumentTypes()
 }
 
 async function load() {
@@ -274,7 +308,7 @@ async function loadDocumentTypes() {
   try {
     documentTypes.value = await getPublicDocumentTypes()
   } catch {
-    createError.value = 'Impossible de charger les types de document.'
+    documentFormError.value = 'Impossible de charger les types de document.'
   }
 }
 
@@ -326,29 +360,61 @@ async function handleCreateType() {
   }
 }
 
-async function handleCreate() {
-  createError.value = ''
+function documentPayload() {
+  return {
+    documentTypeId: createForm.documentTypeId,
+    title: createForm.title.trim(),
+    code: createForm.code.trim() || undefined,
+    description: createForm.description.trim() || undefined,
+    active: createForm.active,
+  }
+}
+
+async function handleSaveDocument() {
+  documentFormError.value = ''
   if (!createForm.documentTypeId || !createForm.title.trim()) {
-    createError.value = 'Type et titre sont obligatoires.'
+    documentFormError.value = 'Type et titre sont obligatoires.'
     return
   }
-  creating.value = true
+  savingDocument.value = true
   try {
-    const res = await createAdminDocument({
-      documentTypeId: createForm.documentTypeId,
-      title: createForm.title.trim(),
-      code: createForm.code.trim() || undefined,
-      description: createForm.description.trim() || undefined,
-      active: createForm.active,
-    })
-    ui.toast.success('Document créé', res.message ?? createForm.title)
-    closeCreateModal()
+    const payload = documentPayload()
+    if (editingDocument.value) {
+      const res = await updateAdminDocument(editingDocument.value.id, payload)
+      ui.toast.success('Document mis à jour', res.message ?? createForm.title)
+    } else {
+      const res = await createAdminDocument(payload)
+      ui.toast.success('Document créé', res.message ?? createForm.title)
+    }
+    closeDocumentModal()
     await load()
   } catch (e: unknown) {
     const err = e as { response?: { data?: { message?: string } } }
-    createError.value = err.response?.data?.message ?? 'Impossible de créer le document.'
+    documentFormError.value = err.response?.data?.message
+      ?? (editingDocument.value ? 'Impossible de modifier le document.' : 'Impossible de créer le document.')
   } finally {
-    creating.value = false
+    savingDocument.value = false
+  }
+}
+
+async function confirmDeactivate(doc: PublicDocument) {
+  if (!window.confirm(`Désactiver « ${doc.title} » ? Il ne sera plus proposé aux citoyens.`)) return
+  deactivatingId.value = doc.id
+  try {
+    const res = await updateAdminDocument(doc.id, {
+      documentTypeId: doc.type?.documentTypeId ?? 0,
+      title: doc.title,
+      code: doc.code ?? undefined,
+      description: doc.description ?? undefined,
+      active: false,
+    })
+    ui.toast.success('Document désactivé', res.message ?? doc.title)
+    await load()
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { message?: string } } }
+    ui.toast.error('Échec', err.response?.data?.message ?? 'Impossible de désactiver le document.')
+  } finally {
+    deactivatingId.value = null
   }
 }
 

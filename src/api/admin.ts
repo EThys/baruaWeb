@@ -8,6 +8,8 @@ import type {
   CreateDocumentResponse,
   CreateDocumentTypePayload,
   CreateDocumentTypeResponse,
+  UpdateDocumentPayload,
+  UpdateDocumentResponse,
 } from '@/types/admin'
 
 export { getPublicAccounts }
@@ -42,6 +44,17 @@ export async function createAdminDocument(
   payload: CreateDocumentPayload,
 ): Promise<CreateDocumentResponse> {
   const { data } = await api.post<CreateDocumentResponse>(ENDPOINTS.privateDocuments, payload)
+  return data
+}
+
+export async function updateAdminDocument(
+  documentId: number,
+  payload: UpdateDocumentPayload,
+): Promise<UpdateDocumentResponse> {
+  const { data } = await api.put<UpdateDocumentResponse>(
+    `${ENDPOINTS.privateDocuments}/${documentId}`,
+    payload,
+  )
   return data
 }
 

@@ -143,6 +143,8 @@ export interface CreateServiceDocumentaireResponse {
   message: string
 }
 
+export type UpdateServiceDocumentaireResponse = CreateServiceDocumentaireResponse
+
 export interface PublicAccount {
   id: number
   name: string
