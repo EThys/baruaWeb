@@ -75,12 +75,52 @@ export const useUIStore = defineStore('ui', () => {
     modalProps.value = {}
   }
 
+  // ─── Confirm dialog (remplace window.confirm) ─────────────────────────────
+  interface ConfirmOptions {
+    title?: string
+    message: string
+    confirmLabel?: string
+    cancelLabel?: string
+    danger?: boolean
+  }
+
+  const confirmDialog = ref<(ConfirmOptions & {
+    open: boolean
+    resolve: ((value: boolean) => void) | null
+  }) | null>(null)
+
+  function confirm(opts: ConfirmOptions | string): Promise<boolean> {
+    const options: ConfirmOptions = typeof opts === 'string'
+      ? { message: opts }
+      : opts
+    return new Promise((resolve) => {
+      confirmDialog.value = {
+        open: true,
+        title: options.title ?? 'Confirmation',
+        message: options.message,
+        confirmLabel: options.confirmLabel ?? 'Confirmer',
+        cancelLabel: options.cancelLabel ?? 'Annuler',
+        danger: options.danger ?? false,
+        resolve,
+      }
+    })
+  }
+
+  function resolveConfirm(value: boolean) {
+    const current = confirmDialog.value
+    if (!current) return
+    current.resolve?.(value)
+    confirmDialog.value = null
+  }
+
   return {
     toasts, notifications, unreadCount,
     isMobileMenuOpen, modalOpen, modalComponent, modalProps,
+    confirmDialog,
     addToast, removeToast, toast,
     markAsRead, markAllAsRead,
     toggleMobileMenu, closeMobileMenu,
     openModal, closeModal,
+    confirm, resolveConfirm,
   }
 })
