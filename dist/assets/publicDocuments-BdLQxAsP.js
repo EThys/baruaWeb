@@ -1,0 +1,1 @@
+import{n,t as c}from"./endpoints-dfs9Ytk4.js";async function a(){const{data:t}=await n.get(c.publicDocuments);return t.documents}async function s(){const{data:t}=await n.get(c.publicDocumentTypes);return t.documentTypes}export{a as n,s as t};

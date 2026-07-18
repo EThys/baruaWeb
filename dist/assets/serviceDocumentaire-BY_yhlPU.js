@@ -1,0 +1,1 @@
+import{n as e,t as c}from"./endpoints-dfs9Ytk4.js";async function i(t){const{data:a}=await e.post(c.privateServicesDocumentaires,t);return a}async function s(t,a){const{data:n}=await e.put(`${c.privateServicesDocumentaires}/${t}`,a);return n}async function o(){const{data:t}=await e.get(c.publicAccounts);return t.accounts}export{o as n,s as r,i as t};
