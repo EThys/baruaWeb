@@ -5,7 +5,9 @@
       <ArrowLeft :size="16" /> Retour
     </button>
 
-    <div v-if="request">
+    <LoadingShimmer v-if="store.loading" variant="detail" />
+
+    <div v-else-if="request">
       <!-- Header -->
       <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
         <div>
@@ -58,10 +60,12 @@
           <!-- Cancel button -->
           <button
             v-if="canCancel"
-            @click="cancel"
-            class="w-full btn border-2 border-red-200 text-red-600 hover:bg-red-50 transition-colors text-sm"
+            type="button"
+            :disabled="cancelling"
+            class="w-full btn border-2 border-red-200 text-red-600 hover:bg-red-50 transition-colors text-sm disabled:opacity-50"
+            @click="openCancelConfirm"
           >
-            Annuler la demande
+            {{ cancelling ? 'Annulation…' : 'Annuler la demande' }}
           </button>
         </div>
       </div>
@@ -73,20 +77,45 @@
         Retour à mes demandes
       </RouterLink>
     </div>
+
+    <ConfirmModal
+      :open="cancelConfirmOpen"
+      title="Annuler la demande"
+      message="Confirmer l'annulation ?"
+      confirm-label="Annuler la demande"
+      danger
+      size="sm"
+      @confirm="cancel"
+      @cancel="cancelConfirmOpen = false"
+      @close="cancelConfirmOpen = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { ArrowLeft, CheckCircle, Circle } from 'lucide-vue-next'
 import { useRequestsStore } from '@/stores/requests'
+import { useUIStore } from '@/stores/ui'
 import StatusBadge from '@/components/requests/RequestStatusBadge.vue'
+import LoadingShimmer from '@/components/ui/LoadingShimmer.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import type { RequestStatus } from '@/types'
 
 const route  = useRoute()
 const router = useRouter()
 const store  = useRequestsStore()
+const ui = useUIStore()
+const cancelConfirmOpen = ref(false)
+const cancelling = ref(false)
+
+onMounted(() => {
+  void store.fetchRequests().then(() => {
+    const id = route.params.id as string
+    if (id) void store.fetchRequestEvolution(id)
+  })
+})
 
 const request = computed(() => store.getRequestById(route.params.id as string))
 const canCancel = computed(() =>
@@ -106,9 +135,25 @@ function statusLabel(s: RequestStatus) { return STATUS_LABELS[s] ?? s }
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
-function cancel() {
-  if (request.value && confirm('Confirmer l\'annulation ?')) {
-    store.cancelRequest(request.value.id)
+function openCancelConfirm() {
+  cancelConfirmOpen.value = true
+}
+async function cancel() {
+  if (!request.value) return
+  cancelling.value = true
+  try {
+    await store.cancelRequest(request.value.id)
+    cancelConfirmOpen.value = false
+    ui.toast.success('Demande annulée', 'L’administration verra le statut Annulée.')
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { message?: string } }; message?: string }
+    cancelConfirmOpen.value = false
+    ui.toast.error(
+      'Annulation impossible',
+      err.response?.data?.message ?? err.message ?? 'L’API a refusé l’annulation.',
+    )
+  } finally {
+    cancelling.value = false
   }
 }
 </script>

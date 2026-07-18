@@ -144,10 +144,10 @@
           <!-- Step 3 -->
           <div v-show="step === 3" class="space-y-4">
             <h2 class="font-semibold text-gray-800">Pièces jointes</h2>
-            <p class="text-sm text-gray-600">Formats acceptés : PDF, JPG, PNG — max 5 Mo par fichier (démo).</p>
+            <p class="text-sm text-gray-600">Formats acceptés : PDF, images, Word — max recommandé 5 Mo.</p>
             <div class="rounded-xl border-2 border-dashed border-gray-200 p-6 text-center hover:border-gray-300 transition-colors">
               <Paperclip :size="24" class="text-gray-300 mx-auto mb-2" />
-              <input id="wizard-files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" class="hidden" @change="handleFiles" />
+              <input id="wizard-files" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,image/*,application/pdf" class="hidden" @change="handleFiles" />
               <label for="wizard-files" class="btn-outline btn-sm cursor-pointer inline-flex text-gray-700 border-gray-300 hover:bg-gray-50">
                 Choisir des fichiers
               </label>
@@ -324,25 +324,50 @@ function handleFiles(e: Event) {
 
 async function submit() {
   if (!service.value || !auth.user) return
-  submitting.value = true
-  await new Promise(r => setTimeout(r, 1000))
-  const formData = {
-    identity: { ...identity },
-    dossier: { ...dossier },
-    fileNames: files.value.map(f => f.name),
+
+  const sdId = service.value.serviceDocumentaireId
+  if (sdId == null) {
+    ui.toast.error(
+      'Service incomplet',
+      'Ce service n’a pas d’identifiant documentaire. Choisissez une commune précise.',
+    )
+    return
   }
-  const newReq = reqStore.submitRequest({
-    userId: auth.user.id,
-    serviceId: service.value.id,
-    serviceName: service.value.title,
-    categorySlug: service.value.categorySlug,
-    status: 'soumise',
-    formData,
-    documents: [],
-    cost: service.value.cost,
-  })
-  submitting.value = false
-  ui.toast.success('Demande soumise !', `Référence : ${newReq.referenceNumber}`)
-  router.push({ name: 'request-detail', params: { id: newReq.id } })
+
+  submitting.value = true
+  try {
+    const commentaireParts = [
+      ...Object.entries(dossier)
+        .filter(([, v]) => v != null && String(v).trim() !== '')
+        .map(([k, v]) => `${k}: ${String(v)}`),
+    ]
+    const newReq = await reqStore.submitDemandeProcuration(
+      {
+        serviceDocumentaireId: sdId,
+        fullName: identity.fullName.trim(),
+        numberIdentity: identity.nationalId.trim(),
+        phone: identity.phone.trim() || undefined,
+        commentaire: commentaireParts.length ? commentaireParts.join('\n') : undefined,
+      },
+      files.value,
+      {
+        serviceName: service.value.title,
+        categorySlug: service.value.categorySlug,
+        serviceId: service.value.id,
+      },
+    )
+    ui.toast.success('Demande soumise !', `Référence : ${newReq.referenceNumber}`)
+    router.push({ name: 'request-detail', params: { id: newReq.id } })
+  } catch (e: unknown) {
+    const err = e as { response?: { data?: { message?: string; detailMessage?: string } } }
+    ui.toast.error(
+      'Échec de l’envoi',
+      err.response?.data?.message
+        ?? err.response?.data?.detailMessage
+        ?? 'Impossible de créer la demande. Réessayez.',
+    )
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
