@@ -299,6 +299,21 @@ export interface ServiceRequest {
   estimatedCompletionDate?: string
   agentNote?: string
   cost?: number
+  /** Identifiant API service documentaire */
+  serviceDocumentaireId?: number
+  /** Identifiant API demande de procuration */
+  demandeProcurationId?: number
+  /** Auteur / demandeur (citoyen) */
+  applicantName?: string
+  applicantEmail?: string
+  applicantPhone?: string
+  applicantIdentity?: string
+  applicantUsername?: string
+  applicantCity?: string
+  /** Organisme / commune lié au service de la demande */
+  serviceOrganismName?: string
+  serviceOrganismCity?: string
+  serviceOrganismType?: string
 }
 
 export interface UploadedDocument {

@@ -5,8 +5,10 @@ import { MOCK_DOCUMENTS } from '@/data/documents'
 import { useAuthStore } from '@/stores/auth'
 
 export const useDocumentsStore = defineStore('documents', () => {
-  const docs = ref<DocumentRecord[]>(MOCK_DOCUMENTS)
+  const docs = ref<DocumentRecord[]>([])
   const query = ref('')
+  const loading = ref(true)
+  const hydrated = ref(false)
 
   const auth = useAuthStore()
 
@@ -36,15 +38,31 @@ export const useDocumentsStore = defineStore('documents', () => {
     )
   })
 
+  async function fetchDocuments(opts?: { force?: boolean }) {
+    if (hydrated.value && !opts?.force) {
+      loading.value = false
+      return
+    }
+
+    loading.value = true
+    try {
+      if (!docs.value.length || opts?.force) {
+        docs.value = [...MOCK_DOCUMENTS]
+      }
+      hydrated.value = true
+    } finally {
+      loading.value = false
+    }
+  }
+
   function incrementDownload(id: string) {
     const d = docs.value.find(x => x.id === id)
     if (d) d.downloads += 1
   }
 
   return {
-    docs, query,
+    docs, query, loading, hydrated,
     myDocuments, filteredMyDocuments, filteredAllDocuments,
-    incrementDownload,
+    fetchDocuments, incrementDownload,
   }
 })
-
