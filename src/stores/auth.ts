@@ -207,6 +207,36 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('barua_user')
     localStorage.removeItem('barua_token')
     localStorage.removeItem('barua_refresh_token')
+    localStorage.removeItem('barua_requests_pinia_v1')
+    void import('@/utils/userRoleCache').then(({ clearCachedUserRoles }) => {
+      clearCachedUserRoles()
+    })
+    void import('@/stores/requests').then(({ useRequestsStore }) => {
+      try {
+        useRequestsStore().clearLocalCache()
+      } catch {
+        // store non initialisé
+      }
+    })
+  }
+
+  /** POST protected/token/refresh */
+  async function refreshSession(): Promise<boolean> {
+    const rt = localStorage.getItem('barua_refresh_token')
+    if (!rt) return false
+    try {
+      const { refreshAccessToken } = await import('@/api/adminAuth')
+      const data = await refreshAccessToken(rt)
+      if (!data.accessToken) return false
+      token.value = data.accessToken
+      localStorage.setItem('barua_token', data.accessToken)
+      if (data.refreshToken) {
+        localStorage.setItem('barua_refresh_token', data.refreshToken)
+      }
+      return true
+    } catch {
+      return false
+    }
   }
 
   return {
@@ -216,6 +246,6 @@ export const useAuthStore = defineStore('auth', () => {
     canManageServiceDocumentaires, canManageDocuments, canManageDocumentTypes,
     roleLabel,
     defaultHomeRoute,
-    login, register, logout, updateProfile,
+    login, register, logout, updateProfile, refreshSession,
   }
 })

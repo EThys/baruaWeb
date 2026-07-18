@@ -8,6 +8,26 @@ export interface AdminUserDto {
   lastName: string
   premium?: boolean
   certified?: boolean
+  /** Compte /public/accounts (2 = citoyen, 3 = admin commune…). */
+  accountId?: number
+  accountName?: string
+  roleLabel?: string
+  isCitizen?: boolean
+  organismId?: number
+  organismName?: string
+  organismCity?: string
+  /** true si le rôle vient vraiment de l’API (pas un défaut citoyen). */
+  roleResolved?: boolean
+}
+
+/** Corps PUT protected/users/{id} (UserRequestChange). */
+export interface UpdateAdminUserPayload {
+  email: string
+  pseudo: string
+  phone: string
+  city: string
+  firstName: string
+  lastName: string
 }
 
 export interface PermissionRoleItem {
@@ -15,8 +35,16 @@ export interface PermissionRoleItem {
   profileId: number
 }
 
+/** @deprecated Prefer AssignAccountUserPayload (POST /protected/users/roles). */
 export interface AssignUserRolesPayload {
   roles: PermissionRoleItem[]
+}
+
+/** Corps POST protected/users/roles (AssignAccountUserRequest). */
+export interface AssignAccountUserPayload {
+  userId: number
+  accountId: number
+  organismId?: number | null
 }
 
 export interface CreateDocumentTypePayload {

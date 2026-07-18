@@ -2,9 +2,10 @@ import axios from 'axios'
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import type { ApiResponse } from '@/types'
 
-/** Mettre `skipAuth: true` pour les appels publics (ex. reset mot de passe après OTP). */
+/** Mettre `skipAuth: true` pour les appels publics. `skipAuthRedirect` évite le renvoi login sur 401. */
 export interface ApiRequestConfig extends InternalAxiosRequestConfig {
   skipAuth?: boolean
+  skipAuthRedirect?: boolean
 }
 
 /**
@@ -54,17 +55,52 @@ api.interceptors.request.use(
 )
 
 // ─── Response Interceptor ─────────────────────────────────────────────────
+let refreshPromise: Promise<boolean> | null = null
+
+async function tryRefreshToken(): Promise<boolean> {
+  const rt = localStorage.getItem('barua_refresh_token')
+  if (!rt) return false
+  try {
+    const { refreshAccessToken } = await import('@/api/adminAuth')
+    const data = await refreshAccessToken(rt)
+    if (!data.accessToken) return false
+    localStorage.setItem('barua_token', data.accessToken)
+    if (data.refreshToken) {
+      localStorage.setItem('barua_refresh_token', data.refreshToken)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 api.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error) => {
-    const reqUrl = String(error.config?.url ?? '')
+  async (error) => {
+    const config = error.config as ApiRequestConfig & { _retry?: boolean }
+    const reqUrl = String(config?.url ?? '')
     const isAuthAttempt =
       reqUrl.includes('/auth/login')
       || reqUrl.includes('/auth/register')
-      || reqUrl.includes('protected/reset/password')
-    if (error.response?.status === 401 && !isAuthAttempt) {
+      || reqUrl.includes('protected/token/refresh')
+
+    if (error.response?.status === 401 && !isAuthAttempt && config && !config._retry) {
+      if (config.skipAuthRedirect) {
+        return Promise.reject(error)
+      }
+      config._retry = true
+      refreshPromise ??= tryRefreshToken().finally(() => { refreshPromise = null })
+      const ok = await refreshPromise
+      if (ok) {
+        const token = localStorage.getItem('barua_token')
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`
+        }
+        return api.request(config)
+      }
       localStorage.removeItem('barua_token')
       localStorage.removeItem('barua_user')
+      localStorage.removeItem('barua_refresh_token')
       window.location.href = '/auth/login'
     }
     return Promise.reject(error)
