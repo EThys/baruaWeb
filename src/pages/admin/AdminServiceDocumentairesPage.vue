@@ -5,29 +5,18 @@
         <h1 class="font-display font-bold text-2xl text-gray-900">Services documentaires</h1>
         <p class="text-sm text-gray-500 mt-1">
           Catalogue des services (document + organisme + tarif).
-          <span v-if="!listLoading" class="text-gray-400">— {{ filteredServices.length }} service(s)</span>
+          <span v-if="!listLoading" class="text-gray-400">({{ total }} / {{ services.length }})</span>
         </p>
       </div>
 
-      <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
-        <div class="w-full sm:w-72">
-          <label class="form-label">Recherche</label>
-          <input
-            v-model="listSearch"
-            type="search"
-            class="form-field"
-            placeholder="Document, commune, ville…"
-          />
-        </div>
-        <button
-          v-if="auth.canManageServiceDocumentaires"
-          type="button"
-          class="btn-primary shrink-0"
-          @click="openCreateModal"
-        >
-          Créer un service
-        </button>
-      </div>
+      <button
+        v-if="auth.canManageServiceDocumentaires"
+        type="button"
+        class="btn-primary btn-sm shrink-0"
+        @click="openCreateModal"
+      >
+        Créer un service
+      </button>
     </div>
 
     <div
@@ -37,165 +26,211 @@
       Organisme lié à votre compte : <strong>{{ auth.user.adminOrganismName }}</strong>
     </div>
 
+    <div class="sheet-toolbar">
+      <div class="relative flex-1 min-w-[200px]">
+        <Search :size="16" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          v-model="listSearch"
+          type="search"
+          class="form-field !pl-10"
+          placeholder="Document, commune, ville…"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+
     <p v-if="listError" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
       {{ listError }}
     </p>
 
-    <div v-if="listLoading" class="text-sm text-gray-500">Chargement des services…</div>
+    <LoadingShimmer
+      v-if="listLoading"
+      variant="table"
+      :count="6"
+      :columns="auth.canManageServiceDocumentaires ? 5 : 4"
+    />
 
-    <div v-else class="card overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[760px]">
+    <div v-else class="sheet">
+      <div class="sheet-scroll">
+        <table class="sheet-table min-w-[780px]">
           <thead>
-            <tr class="text-left text-gray-500 border-b border-gray-100 bg-gray-50/80">
-              <th class="py-3 px-4">ID</th>
-              <th class="py-3 px-4">Document</th>
-              <th class="py-3 px-4">Organisme</th>
-              <th class="py-3 px-4">Ville</th>
-              <th class="py-3 px-4">Prix</th>
-              <th class="py-3 px-4">Délai</th>
-              <th v-if="auth.canManageServiceDocumentaires" class="py-3 px-4 text-right">Actions</th>
+            <tr>
+              <th>Service</th>
+              <th>Organisme</th>
+              <th>Prix</th>
+              <th>Délai</th>
+              <th v-if="auth.canManageServiceDocumentaires" class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="s in filteredServices"
-              :key="s.serviceDocumentaireId"
-              class="border-b border-gray-50 hover:bg-gray-50/50"
-            >
-              <td class="py-3 px-4 text-gray-500 font-mono text-xs">#{{ s.serviceDocumentaireId }}</td>
-              <td class="py-3 px-4">
-                <p class="font-medium text-gray-900">{{ s.document.title }}</p>
-                <p v-if="s.document.code" class="text-xs text-gray-400 font-mono mt-0.5">{{ s.document.code }}</p>
+            <tr v-for="s in pageItems" :key="s.serviceDocumentaireId">
+              <td>
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="sheet-avatar" aria-hidden="true">
+                    {{ docInitials(s.document.title) }}
+                  </div>
+                  <div class="min-w-0">
+                    <p class="font-semibold text-gray-900 truncate">{{ s.document.title }}</p>
+                    <p class="text-[11px] text-gray-400 font-mono">
+                      #{{ s.serviceDocumentaireId }}
+                      <span v-if="s.document.code"> · {{ s.document.code }}</span>
+                    </p>
+                  </div>
+                </div>
               </td>
-              <td class="py-3 px-4 text-gray-700">
-                {{ s.organism.name }}
-                <span v-if="s.organism.type?.name" class="block text-xs text-gray-400">
-                  {{ s.organism.type.name }}
+              <td>
+                <p class="font-medium text-gray-900">{{ s.organism.name }}</p>
+                <p class="text-xs text-gray-500">
+                  {{ s.organism.city || '-' }}
+                  <span v-if="s.organism.type?.name"> · {{ s.organism.type.name }}</span>
+                </p>
+              </td>
+              <td>
+                <span class="sheet-pill sheet-pill--ok whitespace-nowrap">
+                  {{ formatServicePrice(s.price, s.deviseId) }}
                 </span>
               </td>
-              <td class="py-3 px-4 text-gray-600">{{ s.organism.city || '—' }}</td>
-              <td class="py-3 px-4 text-gray-800 whitespace-nowrap">
-                {{ formatServicePrice(s.price, s.deviseId) }}
-              </td>
-              <td class="py-3 px-4 text-gray-600">{{ s.delayDayOpen || '—' }}</td>
-              <td v-if="auth.canManageServiceDocumentaires" class="py-3 px-4 text-right">
-                <button
-                  v-if="canEditService(s)"
-                  type="button"
-                  class="btn-outline btn-sm"
-                  @click="openEditModal(s)"
-                >
-                  Modifier
-                </button>
+              <td>{{ s.delayDayOpen || '-' }}</td>
+              <td v-if="auth.canManageServiceDocumentaires">
+                <div class="sheet-actions">
+                  <button
+                    v-if="canEditService(s)"
+                    type="button"
+                    class="sheet-btn sheet-btn--primary"
+                    @click="openEditModal(s)"
+                  >
+                    Modifier
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p v-if="!filteredServices.length" class="p-8 text-center text-gray-500">
+      <p v-if="!filteredServices.length" class="sheet-empty">
         Aucun service documentaire trouvé.
       </p>
+      <SheetPagination
+        v-else
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total-pages="totalPages"
+        :total="total"
+        :from="from"
+        :to="to"
+      />
     </div>
 
-    <!-- Modal création / édition service -->
-    <div
-      v-if="showServiceModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-      @click.self="closeServiceModal"
+    <AppModal
+      :open="showServiceModal"
+      :title="editingService ? 'Modifier le service documentaire' : 'Créer un service documentaire'"
+      subtitle="Associez un document à un organisme avec tarif et délai."
+      size="lg"
+      @close="closeServiceModal"
     >
-      <div class="card p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-        <h2 class="font-semibold text-gray-900">
-          {{ editingService ? 'Modifier le service documentaire' : 'Créer un service documentaire' }}
-        </h2>
-        <p class="text-sm text-gray-500">
-          Associez un document à un organisme avec tarif et délai.
-        </p>
-
-        <form class="space-y-4" @submit.prevent="handleSubmit">
-          <div>
-            <label class="form-label">Document</label>
-            <select v-model.number="form.documentId" class="form-field" required>
-              <option :value="0" disabled>Sélectionnez un document</option>
-              <option v-for="d in documents" :key="d.id" :value="d.id">
-                {{ d.title }}
-              </option>
-            </select>
-            <p v-if="formDataLoading" class="text-xs text-gray-400 mt-1">Chargement…</p>
-          </div>
-
-          <div>
-            <label class="form-label">Organisme</label>
-            <select
-              v-model.number="form.organismId"
-              class="form-field"
-              required
-              :disabled="organismLocked"
-            >
-              <option :value="0" disabled>Sélectionnez un organisme</option>
-              <option v-for="o in organisms" :key="o.id" :value="o.id">
-                {{ o.name }}{{ o.city ? ` (${o.city})` : '' }}
-              </option>
-            </select>
-            <p v-if="organismLocked" class="text-xs text-gray-500 mt-1">
-              Fixé selon votre profil administrateur commune.
-            </p>
-          </div>
-
-          <div>
-            <label class="form-label">Devise</label>
-            <select v-model.number="form.devise" class="form-field" required>
-              <option v-for="opt in DEVISE_OPTIONS" :key="opt.id" :value="opt.id">
+      <form id="service-doc-form" class="space-y-4" @submit.prevent="handleSubmit">
+        <div>
+          <label class="form-label">Document</label>
+          <select v-model.number="form.documentId" class="form-field" required>
+            <option :value="0" disabled>Sélectionnez un document</option>
+            <option v-for="d in documents" :key="d.id" :value="d.id">
+              {{ d.title }}
+            </option>
+          </select>
+          <p v-if="formDataLoading" class="mt-1 text-xs text-gray-400">Chargement…</p>
+        </div>
+        <div>
+          <label class="form-label">Organisme</label>
+          <select
+            v-model.number="form.organismId"
+            class="form-field"
+            required
+            :disabled="organismLocked"
+          >
+            <option :value="0" disabled>Sélectionnez un organisme</option>
+            <option v-for="o in organisms" :key="o.id" :value="o.id">
+              {{ o.name }}{{ o.city ? ` (${o.city})` : '' }}
+            </option>
+          </select>
+          <p v-if="organismLocked" class="mt-1 text-xs text-gray-500">
+            Fixé selon votre profil administrateur commune.
+          </p>
+        </div>
+        <div>
+          <label class="form-label">Devise</label>
+          <select v-model.number="form.devise" class="form-field" required>
+            <option v-for="opt in DEVISE_OPTIONS" :key="opt.id" :value="opt.id">
+              {{ opt.label }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Prix</label>
+          <input
+            v-model.number="form.price"
+            type="number"
+            min="0"
+            step="1"
+            class="form-field"
+            required
+            :placeholder="pricePlaceholder"
+          />
+        </div>
+        <div>
+          <label class="form-label">Délai d’ouverture</label>
+          <div class="flex flex-wrap items-center gap-2">
+            <input
+              v-model.number="form.delayFrom"
+              type="number"
+              min="1"
+              step="1"
+              class="form-field max-w-[6.5rem]"
+              placeholder="Ex. 5"
+              :required="!form.delayTo"
+            />
+            <span class="text-sm text-gray-500 shrink-0">à</span>
+            <input
+              v-model.number="form.delayTo"
+              type="number"
+              min="1"
+              step="1"
+              class="form-field max-w-[6.5rem]"
+              placeholder="Ex. 10"
+              :required="!form.delayFrom"
+            />
+            <select v-model="form.delayUnit" class="form-field max-w-[9rem]" required>
+              <option
+                v-for="opt in DELAY_UNIT_OPTIONS"
+                :key="opt.value"
+                :value="opt.value"
+              >
                 {{ opt.label }}
               </option>
             </select>
           </div>
-
-          <div>
-            <label class="form-label">Prix</label>
-            <input
-              v-model.number="form.price"
-              type="number"
-              min="0"
-              step="1"
-              class="form-field"
-              required
-              :placeholder="pricePlaceholder"
-            />
-          </div>
-
-          <div>
-            <label class="form-label">Délai d’ouverture</label>
-            <input
-              v-model="form.delayDayOpen"
-              type="text"
-              class="form-field"
-              placeholder="Ex. Entre 2 à 5 jours"
-              required
-            />
-          </div>
-
-          <div>
-            <label class="form-label">Description</label>
-            <textarea v-model="form.description" class="form-field min-h-[80px]" placeholder="Optionnel" />
-          </div>
-
-          <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
-
-          <div class="flex gap-3 justify-end pt-2">
-            <button type="button" class="btn-outline" @click="closeServiceModal">Annuler</button>
-            <button type="submit" class="btn-primary" :disabled="submitting">
-              {{ submitting ? 'Enregistrement…' : (editingService ? 'Enregistrer' : 'Créer') }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <p class="mt-1 text-xs text-gray-400">
+            Exemple : 5 à 10 jours · 2 à 3 semaines · 1 à 2 mois.
+          </p>
+        </div>
+        <div>
+          <label class="form-label">Description</label>
+          <textarea v-model="form.description" class="form-field min-h-[80px]" placeholder="Optionnel" />
+        </div>
+        <p v-if="formError" class="form-error">{{ formError }}</p>
+      </form>
+      <template #footer>
+        <button type="button" class="btn-outline" @click="closeServiceModal">Annuler</button>
+        <button type="submit" form="service-doc-form" class="btn-primary" :disabled="submitting">
+          {{ submitting ? 'Enregistrement…' : (editingService ? 'Enregistrer' : 'Créer') }}
+        </button>
+      </template>
+    </AppModal>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { Search } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useServicesStore } from '@/stores/services'
 import { usePublicOrganismsStore } from '@/stores/publicOrganisms'
@@ -206,11 +241,22 @@ import { createServiceDocumentaire, updateServiceDocumentaire } from '@/api/serv
 import { DEVISE_IDS, DEVISE_OPTIONS, formatServicePrice } from '@/data/devises'
 import type { PublicDocument } from '@/models/publicDocuments'
 import type { PublicServiceDocumentaire } from '@/models/publicServiceDocumentaire'
+import LoadingShimmer from '@/components/ui/LoadingShimmer.vue'
+import AppModal from '@/components/ui/AppModal.vue'
+import SheetPagination from '@/components/ui/SheetPagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const auth = useAuthStore()
 const servicesStore = useServicesStore()
 const organismsStore = usePublicOrganismsStore()
 const ui = useUIStore()
+
+function docInitials(title: string): string {
+  const parts = title.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'S'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+}
 
 const services = ref<PublicServiceDocumentaire[]>([])
 const listLoading = ref(true)
@@ -225,14 +271,87 @@ const formError = ref('')
 
 const documents = ref<PublicDocument[]>([])
 
-const form = reactive<{ documentId: number; organismId: number; devise: number; price: number; delayDayOpen: string; description: string }>({
+type DelayUnit = 'jours' | 'semaines' | 'mois'
+
+const DELAY_UNIT_OPTIONS: { value: DelayUnit; label: string }[] = [
+  { value: 'jours', label: 'jours' },
+  { value: 'semaines', label: 'semaines' },
+  { value: 'mois', label: 'mois' },
+]
+
+const form = reactive<{
+  documentId: number
+  organismId: number
+  devise: number
+  price: number
+  delayFrom: number | null
+  delayTo: number | null
+  delayUnit: DelayUnit
+  description: string
+}>({
   documentId: 0,
   organismId: 0,
   devise: DEVISE_IDS.FC,
   price: 0,
-  delayDayOpen: '',
+  delayFrom: null,
+  delayTo: null,
+  delayUnit: 'jours',
   description: '',
 })
+
+function unitLabel(unit: DelayUnit, n: number): string {
+  if (unit === 'mois') return 'mois'
+  if (unit === 'semaines') return n > 1 ? 'semaines' : 'semaine'
+  return n > 1 ? 'jours' : 'jour'
+}
+
+function detectDelayUnit(raw: string): DelayUnit {
+  const s = raw.toLowerCase()
+  if (/semaines?/.test(s)) return 'semaines'
+  if (/mois/.test(s)) return 'mois'
+  return 'jours'
+}
+
+/** Parse "5 à 10 jours", "2 semaines", etc. → { from, to, unit }. */
+function parseDelayRange(raw: string): {
+  from: number | null
+  to: number | null
+  unit: DelayUnit
+} {
+  const unit = detectDelayUnit(raw)
+  const nums = (raw.match(/\d+/g) ?? []).map(Number).filter(n => Number.isFinite(n) && n > 0)
+  if (nums.length === 0) return { from: null, to: null, unit }
+  if (nums.length === 1) return { from: nums[0]!, to: null, unit }
+  return {
+    from: Math.min(nums[0]!, nums[1]!),
+    to: Math.max(nums[0]!, nums[1]!),
+    unit,
+  }
+}
+
+function asPositiveInt(v: number | null | undefined): number | null {
+  if (v == null || !Number.isFinite(v) || v <= 0) return null
+  return Math.floor(v)
+}
+
+/** Ex. "5 à 10 jours", "3 semaines", "1 à 2 mois". */
+function formatDelayRange(
+  from: number | null,
+  to: number | null,
+  unit: DelayUnit,
+): string {
+  const a = asPositiveInt(from)
+  const b = asPositiveInt(to)
+  if (a != null && b != null) {
+    if (a === b) return `${a} ${unitLabel(unit, a)}`
+    const lo = Math.min(a, b)
+    const hi = Math.max(a, b)
+    return `${lo} à ${hi} ${unitLabel(unit, hi)}`
+  }
+  if (a != null) return `${a} ${unitLabel(unit, a)}`
+  if (b != null) return `${b} ${unitLabel(unit, b)}`
+  return ''
+}
 
 const organisms = computed(() =>
   Array.isArray(organismsStore.organisms) ? organismsStore.organisms : [],
@@ -267,6 +386,18 @@ const filteredServices = computed(() => {
   )
 })
 
+const {
+  page,
+  pageSize,
+  total,
+  totalPages,
+  from,
+  to,
+  pageItems,
+} = usePagination(filteredServices, {
+  resetOn: () => listSearch.value,
+})
+
 function extractErrorMessage(e: unknown): string {
   const err = e as { response?: { data?: { message?: string; detailMessage?: string } } }
   return err.response?.data?.message
@@ -288,7 +419,9 @@ function resetForm() {
   form.organismId = auth.user?.adminOrganismId ?? 0
   form.devise = DEVISE_IDS.FC
   form.price = 0
-  form.delayDayOpen = ''
+  form.delayFrom = null
+  form.delayTo = null
+  form.delayUnit = 'jours'
   form.description = ''
   formError.value = ''
 }
@@ -342,7 +475,12 @@ async function openEditModal(service: PublicServiceDocumentaire) {
   form.organismId = service.organism.id
   form.devise = service.deviseId
   form.price = service.price
-  form.delayDayOpen = service.delayDayOpen ?? ''
+  {
+    const d = parseDelayRange(service.delayDayOpen ?? '')
+    form.delayFrom = d.from
+    form.delayTo = d.to
+    form.delayUnit = d.unit
+  }
   form.description = service.description ?? ''
   formError.value = ''
   showServiceModal.value = true
@@ -355,7 +493,7 @@ function servicePayload() {
     organismId: form.organismId,
     price: form.price,
     devise: form.devise,
-    delayDayOpen: form.delayDayOpen.trim(),
+    delayDayOpen: formatDelayRange(form.delayFrom, form.delayTo, form.delayUnit),
     description: form.description.trim(),
   }
 }
@@ -365,6 +503,12 @@ async function handleSubmit() {
 
   if (!form.documentId || !form.organismId) {
     formError.value = 'Sélectionnez un document et un organisme.'
+    return
+  }
+
+  const delay = formatDelayRange(form.delayFrom, form.delayTo, form.delayUnit)
+  if (!delay) {
+    formError.value = 'Indiquez un délai (ex. 5 à 10 jours).'
     return
   }
 

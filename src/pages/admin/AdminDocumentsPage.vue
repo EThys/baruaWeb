@@ -5,24 +5,15 @@
         <h1 class="font-display font-bold text-2xl text-gray-900">Documents</h1>
         <p class="text-sm text-gray-500 mt-1">
           Référentiel des pièces administratives.
-          <span v-if="!loading" class="text-gray-400">— {{ filteredDocuments.length }} document(s)</span>
+          <span v-if="!loading" class="text-gray-400">({{ total }} / {{ documents.length }})</span>
         </p>
       </div>
 
-      <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
-        <div class="w-full sm:w-72">
-          <label class="form-label">Recherche</label>
-          <input
-            v-model="search"
-            type="search"
-            class="form-field"
-            placeholder="Titre, code, type…"
-          />
-        </div>
+      <div class="flex flex-wrap gap-2">
         <button
           v-if="auth.canManageDocumentTypes"
           type="button"
-          class="btn-outline shrink-0"
+          class="btn-outline btn-sm"
           @click="openTypeModal"
         >
           Types de documents
@@ -30,7 +21,7 @@
         <button
           v-if="auth.canManageDocuments"
           type="button"
-          class="btn-primary shrink-0"
+          class="btn-primary btn-sm"
           @click="openCreateModalWithTypes"
         >
           Créer un document
@@ -38,185 +29,223 @@
       </div>
     </div>
 
+    <div class="sheet-toolbar">
+      <div class="relative flex-1 min-w-[200px]">
+        <Search :size="16" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          v-model="search"
+          type="search"
+          class="form-field !pl-10"
+          placeholder="Titre, code, type, description…"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+
     <p v-if="loadError" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
       {{ loadError }}
     </p>
 
-    <div v-if="loading" class="text-sm text-gray-500">Chargement des documents…</div>
+    <LoadingShimmer v-if="loading" variant="table" :count="6" :columns="auth.canManageDocuments ? 5 : 4" />
 
-    <div v-else class="card overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[640px]">
+    <div v-else class="sheet">
+      <div class="sheet-scroll">
+        <table class="sheet-table min-w-[720px]">
           <thead>
-            <tr class="text-left text-gray-500 border-b border-gray-100 bg-gray-50/80">
-              <th class="py-3 px-4">ID</th>
-              <th class="py-3 px-4">Titre</th>
-              <th class="py-3 px-4">Code</th>
-              <th class="py-3 px-4">Type</th>
-              <th class="py-3 px-4">Description</th>
-              <th v-if="auth.canManageDocuments" class="py-3 px-4 text-right">Actions</th>
+            <tr>
+              <th>Document</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th v-if="auth.canManageDocuments" class="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="d in filteredDocuments"
-              :key="d.id"
-              class="border-b border-gray-50 hover:bg-gray-50/50"
-            >
-              <td class="py-3 px-4 text-gray-500 font-mono text-xs">#{{ d.id }}</td>
-              <td class="py-3 px-4 font-medium text-gray-900">{{ d.title }}</td>
-              <td class="py-3 px-4 text-gray-600 font-mono text-xs">{{ d.code || '—' }}</td>
-              <td class="py-3 px-4">
-                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-brand/10 text-brand">
-                  {{ d.type?.name || '—' }}
-                </span>
+            <tr v-for="d in pageItems" :key="d.id">
+              <td>
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="sheet-avatar" aria-hidden="true">
+                    {{ docInitials(d.title) }}
+                  </div>
+                  <div class="min-w-0">
+                    <p class="font-semibold text-gray-900 truncate">{{ d.title }}</p>
+                    <p class="text-[11px] text-gray-400 font-mono">
+                      #{{ d.id }}<span v-if="d.code"> · {{ d.code }}</span>
+                    </p>
+                  </div>
+                </div>
               </td>
-              <td class="py-3 px-4 text-gray-600 max-w-xs truncate" :title="d.description || ''">
-                {{ d.description || '—' }}
+              <td>
+                <span class="sheet-pill sheet-pill--ok">{{ d.type?.name || '-' }}</span>
               </td>
-              <td v-if="auth.canManageDocuments" class="py-3 px-4 text-right whitespace-nowrap">
-                <button type="button" class="btn-outline btn-sm mr-2" @click="openEditModal(d)">
-                  Modifier
-                </button>
-                <button
-                  type="button"
-                  class="btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50"
-                  :disabled="deactivatingId === d.id"
-                  @click="confirmDeactivate(d)"
-                >
-                  {{ deactivatingId === d.id ? '…' : 'Désactiver' }}
-                </button>
+              <td class="max-w-xs truncate" :title="d.description || ''">
+                {{ d.description || '-' }}
+              </td>
+              <td v-if="auth.canManageDocuments">
+                <div class="sheet-actions">
+                  <button type="button" class="sheet-btn sheet-btn--primary" @click="openEditModal(d)">
+                    Modifier
+                  </button>
+                  <button
+                    type="button"
+                    class="sheet-btn"
+                    :disabled="deactivatingId === d.id"
+                    @click="confirmDeactivate(d)"
+                  >
+                    <Loader2 v-if="deactivatingId === d.id" :size="14" class="animate-spin" />
+                    Désactiver
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p v-if="!filteredDocuments.length && !loading" class="p-8 text-center text-gray-500">
+      <p v-if="!filteredDocuments.length && !loading" class="sheet-empty">
         Aucun document trouvé.
       </p>
+      <SheetPagination
+        v-else-if="filteredDocuments.length"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total-pages="totalPages"
+        :total="total"
+        :from="from"
+        :to="to"
+      />
     </div>
 
-    <!-- Modal types de documents (super-admin) -->
-    <div
-      v-if="showTypeModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-      @click.self="closeTypeModal"
+    <AppModal
+      :open="showTypeModal"
+      title="Types de documents"
+      subtitle="Référentiel des catégories (état civil, fiscalité…)."
+      size="lg"
+      @close="closeTypeModal"
     >
-      <div class="card p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-        <h2 class="font-semibold text-gray-900">Types de documents</h2>
-        <p class="text-sm text-gray-500">Référentiel des catégories (état civil, fiscalité…).</p>
+      <ul
+        v-if="documentTypes.length"
+        class="mb-4 max-h-40 space-y-2 overflow-y-auto rounded-xl border border-gray-100 bg-gray-50/50 p-3 text-sm"
+      >
+        <li
+          v-for="t in documentTypes"
+          :key="t.documentTypeId"
+          class="flex justify-between gap-2 border-b border-gray-100 py-1.5 last:border-0"
+        >
+          <span class="font-medium text-gray-800">{{ t.name }}</span>
+          <span class="shrink-0 text-xs text-gray-400">#{{ t.documentTypeId }}</span>
+        </li>
+      </ul>
 
-        <ul v-if="documentTypes.length" class="text-sm space-y-2 max-h-40 overflow-y-auto border border-gray-100 rounded-xl p-3">
-          <li
-            v-for="t in documentTypes"
-            :key="t.documentTypeId"
-            class="flex justify-between gap-2 py-1 border-b border-gray-50 last:border-0"
-          >
-            <span class="font-medium text-gray-800">{{ t.name }}</span>
-            <span class="text-gray-400 text-xs shrink-0">#{{ t.documentTypeId }}</span>
-          </li>
-        </ul>
+      <form id="create-type-form" class="space-y-4 border-t border-gray-100 pt-4" @submit.prevent="handleCreateType">
+        <p class="text-sm font-medium text-gray-800">Nouveau type</p>
+        <div>
+          <label class="form-label">Nom</label>
+          <input v-model="typeForm.name" type="text" class="form-field" required placeholder="Ex. État civil" />
+        </div>
+        <div>
+          <label class="form-label">Description</label>
+          <textarea v-model="typeForm.description" class="form-field min-h-[60px]" placeholder="Optionnel" />
+        </div>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input v-model="typeForm.active" type="checkbox" class="rounded border-gray-300 text-brand" />
+          Type actif
+        </label>
+        <p v-if="typeError" class="form-error">{{ typeError }}</p>
+      </form>
+      <template #footer>
+        <button type="button" class="btn-outline" @click="closeTypeModal">Fermer</button>
+        <button type="submit" form="create-type-form" class="btn-primary" :disabled="creatingType">
+          {{ creatingType ? 'Création…' : 'Créer le type' }}
+        </button>
+      </template>
+    </AppModal>
 
-        <form class="space-y-4 border-t border-gray-100 pt-4" @submit.prevent="handleCreateType">
-          <p class="text-sm font-medium text-gray-800">Nouveau type</p>
-          <div>
-            <label class="form-label">Nom</label>
-            <input v-model="typeForm.name" type="text" class="form-field" required placeholder="Ex. État civil" />
-          </div>
-          <div>
-            <label class="form-label">Description</label>
-            <textarea v-model="typeForm.description" class="form-field min-h-[60px]" placeholder="Optionnel" />
-          </div>
-          <label class="flex items-center gap-2 text-sm text-gray-700">
-            <input v-model="typeForm.active" type="checkbox" class="rounded border-gray-300 text-brand" />
-            Type actif
-          </label>
-          <p v-if="typeError" class="text-sm text-red-600">{{ typeError }}</p>
-          <div class="flex gap-3 justify-end">
-            <button type="button" class="btn-outline" @click="closeTypeModal">Fermer</button>
-            <button type="submit" class="btn-primary" :disabled="creatingType">
-              {{ creatingType ? 'Création…' : 'Créer le type' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Modal création / édition document -->
-    <div
-      v-if="showDocumentModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-      @click.self="closeDocumentModal"
+    <AppModal
+      :open="showDocumentModal"
+      :title="editingDocument ? 'Modifier le document' : 'Créer un document'"
+      :subtitle="editingDocument ? 'Mettez à jour les informations du document.' : 'Ajoute une pièce au référentiel (titre, type, description).'"
+      size="lg"
+      @close="closeDocumentModal"
     >
-      <div class="card p-6 w-full max-w-lg space-y-4 max-h-[90vh] overflow-y-auto">
-        <h2 class="font-semibold text-gray-900">
-          {{ editingDocument ? 'Modifier le document' : 'Créer un document' }}
-        </h2>
-        <p class="text-sm text-gray-500">
-          {{ editingDocument ? 'Mettez à jour les informations du document.' : 'Ajoute une pièce au référentiel (titre, type, description).' }}
-        </p>
+      <form id="save-document-form" class="space-y-4" @submit.prevent="handleSaveDocument">
+        <div>
+          <label class="form-label">Type de document</label>
+          <select v-model.number="createForm.documentTypeId" class="form-field" required>
+            <option :value="0" disabled>Choisir un type</option>
+            <option v-for="t in documentTypes" :key="t.documentTypeId" :value="t.documentTypeId">
+              {{ t.name }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Titre</label>
+          <input
+            v-model="createForm.title"
+            type="text"
+            class="form-field"
+            required
+            placeholder="Ex. Attestation de vie"
+          />
+        </div>
+        <div>
+          <label class="form-label">Code <span class="text-gray-400 font-normal">(optionnel)</span></label>
+          <input v-model="createForm.code" type="text" class="form-field" />
+        </div>
+        <div>
+          <label class="form-label">Description</label>
+          <textarea v-model="createForm.description" class="form-field min-h-[80px]" />
+        </div>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input v-model="createForm.active" type="checkbox" class="rounded border-gray-300 text-brand" />
+          Document actif
+        </label>
+        <p v-if="documentFormError" class="form-error">{{ documentFormError }}</p>
+      </form>
+      <template #footer>
+        <button type="button" class="btn-outline" @click="closeDocumentModal">Annuler</button>
+        <button type="submit" form="save-document-form" class="btn-primary" :disabled="savingDocument">
+          {{ savingDocument ? 'Enregistrement…' : (editingDocument ? 'Enregistrer' : 'Créer') }}
+        </button>
+      </template>
+    </AppModal>
 
-        <form class="space-y-4" @submit.prevent="handleSaveDocument">
-          <div>
-            <label class="form-label">Type de document</label>
-            <select v-model.number="createForm.documentTypeId" class="form-field" required>
-              <option :value="0" disabled>Choisir un type</option>
-              <option v-for="t in documentTypes" :key="t.documentTypeId" :value="t.documentTypeId">
-                {{ t.name }}
-              </option>
-            </select>
-          </div>
-
-          <div>
-            <label class="form-label">Titre</label>
-            <input
-              v-model="createForm.title"
-              type="text"
-              class="form-field"
-              required
-              placeholder="Ex. Attestation de vie"
-            />
-          </div>
-
-          <div>
-            <label class="form-label">Code <span class="text-gray-400 font-normal">(optionnel)</span></label>
-            <input v-model="createForm.code" type="text" class="form-field" />
-          </div>
-
-          <div>
-            <label class="form-label">Description</label>
-            <textarea v-model="createForm.description" class="form-field min-h-[80px]" />
-          </div>
-
-          <label class="flex items-center gap-2 text-sm text-gray-700">
-            <input v-model="createForm.active" type="checkbox" class="rounded border-gray-300 text-brand" />
-            Document actif
-          </label>
-
-          <p v-if="documentFormError" class="text-sm text-red-600">{{ documentFormError }}</p>
-
-          <div class="flex gap-3 justify-end pt-2">
-            <button type="button" class="btn-outline" @click="closeDocumentModal">Annuler</button>
-            <button type="submit" class="btn-primary" :disabled="savingDocument">
-              {{ savingDocument ? 'Enregistrement…' : (editingDocument ? 'Enregistrer' : 'Créer') }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <ConfirmModal
+      :open="confirmState.open"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      confirm-label="Désactiver"
+      danger
+      :loading="confirmState.loading"
+      size="sm"
+      @confirm="runDeactivate"
+      @cancel="closeConfirm"
+      @close="closeConfirm"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { Loader2, Search } from 'lucide-vue-next'
 import { createAdminDocument, createDocumentType, updateAdminDocument } from '@/api/admin'
 import { getPublicDocuments, getPublicDocumentTypes } from '@/api/publicDocuments'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import type { PublicDocument, PublicDocumentType } from '@/models/publicDocuments'
+import LoadingShimmer from '@/components/ui/LoadingShimmer.vue'
+import AppModal from '@/components/ui/AppModal.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
+import SheetPagination from '@/components/ui/SheetPagination.vue'
+import { usePagination } from '@/composables/usePagination'
 
 const auth = useAuthStore()
 const ui = useUIStore()
+
+function docInitials(title: string): string {
+  const parts = title.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'D'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+}
 
 const documents = ref<PublicDocument[]>([])
 const documentTypes = ref<PublicDocumentType[]>([])
@@ -232,6 +261,20 @@ const documentFormError = ref('')
 const typeError = ref('')
 const editingDocument = ref<PublicDocument | null>(null)
 const deactivatingId = ref<number | null>(null)
+
+const confirmState = reactive<{
+  open: boolean
+  title: string
+  message: string
+  loading: boolean
+  doc: PublicDocument | null
+}>({
+  open: false,
+  title: '',
+  message: '',
+  loading: false,
+  doc: null,
+})
 
 const createForm = reactive({
   documentTypeId: 0,
@@ -256,6 +299,18 @@ const filteredDocuments = computed(() => {
     || (d.type?.name ?? '').toLowerCase().includes(q)
     || (d.description ?? '').toLowerCase().includes(q),
   )
+})
+
+const {
+  page,
+  pageSize,
+  total,
+  totalPages,
+  from,
+  to,
+  pageItems,
+} = usePagination(filteredDocuments, {
+  resetOn: () => search.value,
 })
 
 function resetCreateForm() {
@@ -397,8 +452,24 @@ async function handleSaveDocument() {
   }
 }
 
-async function confirmDeactivate(doc: PublicDocument) {
-  if (!window.confirm(`Désactiver « ${doc.title} » ? Il ne sera plus proposé aux citoyens.`)) return
+function confirmDeactivate(doc: PublicDocument) {
+  confirmState.open = true
+  confirmState.title = 'Désactiver le document'
+  confirmState.message = `Désactiver « ${doc.title} » ? Il ne sera plus proposé aux citoyens.`
+  confirmState.loading = false
+  confirmState.doc = doc
+}
+
+function closeConfirm() {
+  if (confirmState.loading) return
+  confirmState.open = false
+  confirmState.doc = null
+}
+
+async function runDeactivate() {
+  const doc = confirmState.doc
+  if (!doc) return
+  confirmState.loading = true
   deactivatingId.value = doc.id
   try {
     const res = await updateAdminDocument(doc.id, {
@@ -409,11 +480,14 @@ async function confirmDeactivate(doc: PublicDocument) {
       active: false,
     })
     ui.toast.success('Document désactivé', res.message ?? doc.title)
+    confirmState.open = false
+    confirmState.doc = null
     await load()
   } catch (e: unknown) {
     const err = e as { response?: { data?: { message?: string } } }
     ui.toast.error('Échec', err.response?.data?.message ?? 'Impossible de désactiver le document.')
   } finally {
+    confirmState.loading = false
     deactivatingId.value = null
   }
 }

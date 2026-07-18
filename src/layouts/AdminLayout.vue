@@ -101,6 +101,8 @@
         </RouterView>
       </main>
     </div>
+
+    <ToastStack />
   </div>
 </template>
 
@@ -112,6 +114,7 @@ import {
 } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
+import ToastStack from '@/components/ui/ToastStack.vue'
 import logoBarua from '@/assets/logoBarua.png'
 
 const auth = useAuthStore()
@@ -152,7 +155,7 @@ const navLinks = computed(() => {
 
 const routeTitles: Record<string, { title: string; sub: string }> = {
   'admin-home': { title: 'Administration', sub: 'Pilotage de la plateforme' },
-  'admin-users': { title: 'Utilisateurs', sub: 'Liste et attribution des rôles' },
+  'admin-users': { title: 'Utilisateurs', sub: 'Certification, déblocage, rôles et création' },
   'admin-organisms': { title: 'Communes', sub: 'Activité par organisme' },
   'admin-requests': { title: 'Demandes', sub: 'Valider, annuler, demander des compléments' },
   'admin-request-detail': { title: 'Détail demande', sub: 'Analyse et décision' },

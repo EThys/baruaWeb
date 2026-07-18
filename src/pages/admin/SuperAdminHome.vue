@@ -16,24 +16,32 @@
     </div>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="card p-5">
-        <p class="text-xs text-gray-500">Utilisateurs</p>
-        <p class="font-display font-bold text-2xl text-gray-900 mt-1">
-          {{ admin.loadingUsers ? '…' : admin.usersCount }}
-        </p>
-      </div>
-      <div class="card p-5">
-        <p class="text-xs text-gray-500">Comptes certifiés</p>
-        <p class="font-display font-bold text-2xl text-gray-900 mt-1">{{ admin.certifiedCount }}</p>
-      </div>
-      <div class="card p-5">
-        <p class="text-xs text-gray-500">Demandes (total)</p>
-        <p class="font-display font-bold text-2xl text-gray-900 mt-1">{{ admin.totalDemandes }}</p>
-      </div>
-      <div class="card p-5">
-        <p class="text-xs text-gray-500">Demandes en cours</p>
-        <p class="font-display font-bold text-2xl text-gray-900 mt-1">{{ admin.openDemandes }}</p>
-      </div>
+      <template v-if="admin.loadingUsers || admin.loadingStats">
+        <div v-for="i in 4" :key="i" class="card p-5 space-y-3">
+          <Shimmer width="40%" height="0.625rem" />
+          <Shimmer width="3rem" height="1.75rem" />
+        </div>
+      </template>
+      <template v-else>
+        <div class="card p-5">
+          <p class="text-xs text-gray-500">Utilisateurs</p>
+          <p class="font-display font-bold text-2xl text-gray-900 mt-1">
+            {{ admin.usersCount }}
+          </p>
+        </div>
+        <div class="card p-5">
+          <p class="text-xs text-gray-500">Comptes certifiés</p>
+          <p class="font-display font-bold text-2xl text-gray-900 mt-1">{{ admin.certifiedCount }}</p>
+        </div>
+        <div class="card p-5">
+          <p class="text-xs text-gray-500">Demandes (total)</p>
+          <p class="font-display font-bold text-2xl text-gray-900 mt-1">{{ admin.totalDemandes }}</p>
+        </div>
+        <div class="card p-5">
+          <p class="text-xs text-gray-500">Demandes en cours</p>
+          <p class="font-display font-bold text-2xl text-gray-900 mt-1">{{ admin.openDemandes }}</p>
+        </div>
+      </template>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -49,40 +57,53 @@
       </RouterLink>
     </div>
 
-    <div class="card p-6">
-      <div class="flex items-center justify-between gap-4 mb-4">
+    <div class="sheet">
+      <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3.5">
         <div>
           <h2 class="font-semibold text-gray-900">Communes & organismes</h2>
-          <p class="text-xs text-gray-500">Services documentaires et demandes associées (estimation)</p>
+          <p class="text-xs text-gray-500">Services documentaires et demandes associées</p>
         </div>
         <RouterLink to="/admin/organismes" class="text-sm text-brand font-medium hover:underline">
           Voir tout →
         </RouterLink>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-left text-gray-500 border-b border-gray-100">
-              <th class="py-2 pr-4">Organisme</th>
-              <th class="py-2 pr-4">Ville</th>
-              <th class="py-2 pr-4">Services</th>
-              <th class="py-2">Demandes</th>
-            </tr>
-          </thead>
+      <div class="sheet-scroll">
+        <table v-if="admin.loadingStats" class="sheet-table min-w-[480px]" role="status" aria-label="Chargement">
           <tbody>
-            <tr
-              v-for="row in topOrganisms"
-              :key="row.organismId"
-              class="border-b border-gray-50 last:border-0"
-            >
-              <td class="py-3 pr-4 font-medium text-gray-800">{{ row.organismName }}</td>
-              <td class="py-3 pr-4 text-gray-600">{{ row.city || '—' }}</td>
-              <td class="py-3 pr-4">{{ row.servicesCount }}</td>
-              <td class="py-3">{{ row.demandesCount }}</td>
+            <tr v-for="i in 5" :key="i">
+              <td><Shimmer width="70%" height="0.75rem" /></td>
+              <td><Shimmer width="50%" height="0.75rem" /></td>
+              <td><Shimmer width="2rem" height="0.75rem" /></td>
+              <td><Shimmer width="2rem" height="0.75rem" /></td>
             </tr>
           </tbody>
         </table>
-        <p v-if="!topOrganisms.length && !admin.loadingStats" class="text-sm text-gray-500 py-4 text-center">
+        <table v-else class="sheet-table">
+          <thead>
+            <tr>
+              <th>Organisme</th>
+              <th>Ville</th>
+              <th>Services</th>
+              <th>Demandes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in topOrganisms" :key="row.organismId">
+              <td>
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="sheet-avatar !h-9 !w-9 !text-[10px]" aria-hidden="true">
+                    {{ orgInitials(row.organismName) }}
+                  </div>
+                  <p class="font-semibold text-gray-900 truncate">{{ row.organismName }}</p>
+                </div>
+              </td>
+              <td>{{ row.city || '-' }}</td>
+              <td><span class="sheet-pill sheet-pill--ok">{{ row.servicesCount }}</span></td>
+              <td class="font-semibold">{{ row.demandesCount }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-if="!topOrganisms.length && !admin.loadingStats" class="sheet-empty">
           Aucun organisme chargé.
         </p>
       </div>
@@ -97,8 +118,16 @@ import {
   FilePlus2, FileText, Landmark, Users, Shield,
 } from 'lucide-vue-next'
 import { useAdminStore } from '@/stores/admin'
+import Shimmer from '@/components/ui/Shimmer.vue'
 
 const admin = useAdminStore()
+
+function orgInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return 'O'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+}
 
 const quickActions = [
   { to: '/admin/utilisateurs', label: 'Utilisateurs', desc: 'Liste et attribution des rôles', icon: Users },
