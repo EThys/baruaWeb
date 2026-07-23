@@ -59,6 +59,12 @@ const router = createRouter({
           meta: { title: 'FAQ — Barua' },
         },
         {
+          path: 'confidentialite',
+          name: 'privacy',
+          component: () => import('@/pages/PrivacyPolicyPage.vue'),
+          meta: { title: 'Politique de confidentialité — Barua' },
+        },
+        {
           path: 'localites',
           name: 'localities',
           component: () => import('@/pages/LocalitiesPage.vue'),

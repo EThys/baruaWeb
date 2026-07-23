@@ -1,4 +1,10 @@
-import type { CategorySlug, RequestStatus, RequestStatusHistory, ServiceRequest } from '@/types'
+import type {
+  CategorySlug,
+  RequestStatus,
+  RequestStatusHistory,
+  ServiceRequest,
+  UploadedDocument,
+} from '@/types'
 
 /** Statuts exposés par GET /public/demandes/procuration/status */
 export type ApiDemandeStatusCode = 'soumises' | 'en_cours' | 'approuvees' | 'rejetees' | string
@@ -171,6 +177,125 @@ function serviceNameFromRaw(raw: ApiDemandeRaw): string {
     if (t2) return t2
   }
   return pickString(raw, ['serviceName', 'documentTitle', 'title', 'libelle']) ?? 'Demande'
+}
+
+function resolveDocumentUrl(url: string | undefined): string {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url) || url.startsWith('blob:') || url.startsWith('data:')) return url
+  const base = (import.meta.env.VITE_API_URL as string | undefined)?.trim()
+  if (base?.startsWith('http')) {
+    try {
+      return new URL(url.startsWith('/') ? url : `/${url}`, base.replace(/\/api\/?v?\d*\/?$/, '/')).href
+    } catch {
+      return url
+    }
+  }
+  return url.startsWith('/') ? url : `/${url}`
+}
+
+function mapOneDocument(raw: ApiDemandeRaw, index: number): UploadedDocument | null {
+  const url =
+    pickString(raw, [
+      'url', 'fileUrl', 'downloadUrl', 'path', 'chemin', 'filePath',
+      'lien', 'link', 'contentUrl', 'pieceUrl',
+    ])
+  const fileName =
+    pickString(raw, [
+      'fileName', 'filename', 'originalFilename', 'originalName',
+      'name', 'nom', 'label', 'title',
+    ])
+    ?? (url ? url.split('/').pop() : undefined)
+    ?? `piece-${index + 1}`
+
+  // Entrée string seule (URL ou nom)
+  if (!url && typeof raw === 'object' && Object.keys(raw).length === 0) return null
+
+  return {
+    id: pickString(raw, ['id', 'pieceId', 'documentId', 'fileId']) ?? `piece-${index}`,
+    name: pickString(raw, ['label', 'title', 'name', 'nom']) ?? fileName,
+    fileName,
+    size: pickNumber(raw, ['size', 'fileSize', 'taille', 'length']) ?? 0,
+    mimeType:
+      pickString(raw, ['mimeType', 'contentType', 'type', 'mediaType'])
+      ?? 'application/octet-stream',
+    uploadedAt:
+      pickString(raw, ['uploadedAt', 'createdAt', 'date', 'dateUpload'])
+      ?? new Date().toISOString(),
+    url: resolveDocumentUrl(url),
+  }
+}
+
+function stringListToDocuments(values: string[]): UploadedDocument[] {
+  return values
+    .map(v => v.trim())
+    .filter(Boolean)
+    .map((url, i) => {
+      const name = url.split('/').pop() || `piece-${i + 1}`
+      return {
+        id: `piece-${i}`,
+        name,
+        fileName: name,
+        size: 0,
+        mimeType: 'application/octet-stream',
+        uploadedAt: new Date().toISOString(),
+        url: resolveDocumentUrl(url),
+      } satisfies UploadedDocument
+    })
+}
+
+/** Extrait les pièces jointes d’une réponse demande (schéma API souple). */
+export function documentsFromRaw(raw: ApiDemandeRaw): UploadedDocument[] {
+  // Ne pas utiliser `document` : souvent le catalogue (ServiceDocumentaire.document).
+  const candidates: unknown[] = [
+    raw.pieces,
+    raw.pieceList,
+    raw.fichiers,
+    raw.files,
+    raw.attachments,
+    raw.uploads,
+    raw.medias,
+    raw.piece,
+    raw.fichier,
+  ]
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate) && candidate.length) {
+      if (candidate.every(x => typeof x === 'string')) {
+        return stringListToDocuments(candidate as string[])
+      }
+      return (candidate as ApiDemandeRaw[])
+        .map((item, i) => mapOneDocument(item, i))
+        .filter((d): d is UploadedDocument => d != null && (!!d.fileName || !!d.url))
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return stringListToDocuments([candidate])
+    }
+    const rec = asRecord(candidate)
+    if (rec) {
+      const mapped = mapOneDocument(rec, 0)
+      if (mapped && (mapped.fileName || mapped.url)) return [mapped]
+    }
+  }
+
+  const flatUrl = pickString(raw, [
+    'pieceUrl', 'fileUrl', 'fichierUrl', 'piecePath', 'pathPiece',
+  ])
+  const flatName = pickString(raw, [
+    'pieceName', 'fichierName', 'nomPiece', 'originalFilename',
+  ])
+  if (flatUrl || flatName) {
+    return [{
+      id: 'piece-0',
+      name: flatName ?? (flatUrl?.split('/').pop() || 'Pièce jointe'),
+      fileName: flatName ?? (flatUrl?.split('/').pop() || 'piece'),
+      size: pickNumber(raw, ['pieceSize', 'fileSize']) ?? 0,
+      mimeType: pickString(raw, ['pieceMimeType', 'mimeType']) ?? 'application/octet-stream',
+      uploadedAt: new Date().toISOString(),
+      url: resolveDocumentUrl(flatUrl),
+    }]
+  }
+
+  return []
 }
 
 function mapHistoryItem(raw: ApiDemandeRaw): RequestStatusHistory {
@@ -363,7 +488,7 @@ export function mapApiDemandeToServiceRequest(raw: ApiDemandeRaw): ServiceReques
       city: applicant.city,
       commentaire: pickString(raw, ['commentaire', 'comment', 'description']),
     },
-    documents: [],
+    documents: documentsFromRaw(raw),
     statusHistory,
     submittedAt: createdAt,
     updatedAt,

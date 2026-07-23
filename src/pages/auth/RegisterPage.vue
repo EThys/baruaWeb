@@ -162,7 +162,10 @@
         <input v-model="accepted" type="checkbox" class="mt-1 accent-brand" />
         <span class="text-xs text-gray-500">
           J'accepte les <a href="#" class="text-brand font-medium hover:underline">Conditions d'utilisation</a>
-          et la <a href="#" class="text-brand font-medium hover:underline">Politique de confidentialité</a>.
+          et la
+          <RouterLink to="/confidentialite" class="text-brand font-medium hover:underline" target="_blank">
+            Politique de confidentialité
+          </RouterLink>.
         </span>
       </label>
       <p v-if="termsError" class="form-error text-xs">{{ termsError }}</p>

@@ -408,22 +408,22 @@
             <ul class="space-y-2 text-sm text-gray-600">
               <li><RouterLink to="/faq" class="hover:text-brand transition-colors">FAQ</RouterLink></li>
               <li><RouterLink to="/annuaire" class="hover:text-brand transition-colors">Annuaire Admin.</RouterLink></li>
-              <li><a href="#" class="hover:text-brand transition-colors">Support technique</a></li>
-              <li><a href="#" class="hover:text-brand transition-colors">Contact</a></li>
             </ul>
           </div>
           <div>
             <h4 class="font-semibold text-sm mb-3 text-gray-900">Légal</h4>
             <ul class="space-y-2 text-sm text-gray-600">
-              <li><a href="#" class="hover:text-brand transition-colors">Mentions légales</a></li>
-              <li><a href="#" class="hover:text-brand transition-colors">Protection des données</a></li>
-              <li><a href="#" class="hover:text-brand transition-colors">Accessibilité</a></li>
+              <li>
+                <RouterLink to="/confidentialite" class="hover:text-brand transition-colors">
+                  Confidentialité
+                </RouterLink>
+              </li>
             </ul>
           </div>
         </div>
         <div class="border-t border-gray-200 mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
-          <p>© {{ new Date().getFullYear() }} BARUA — Gouvernement de la République. Tous droits réservés.</p>
-          <p>Hébergement national · Support institutionnel</p>
+          <p>© {{ new Date().getFullYear() }} BARUA. Gouvernement de la République. Tous droits réservés.</p>
+          <p>Hébergement national. Support institutionnel</p>
         </div>
       </div>
     </footer>

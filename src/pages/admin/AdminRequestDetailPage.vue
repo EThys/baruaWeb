@@ -190,6 +190,60 @@
             </div>
           </section>
 
+          <!-- Pièces jointes -->
+          <section class="sheet overflow-hidden">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5 bg-slate-50/70">
+              <div>
+                <h2 class="font-semibold text-slate-900">Pièces jointes</h2>
+                <p class="text-xs text-slate-500">
+                  Fichiers envoyés par le citoyen
+                  <span v-if="request.documents?.length"> · {{ request.documents.length }}</span>
+                </p>
+              </div>
+              <Paperclip :size="18" class="text-slate-400" />
+            </div>
+            <div class="p-5">
+              <ul v-if="request.documents?.length" class="space-y-2">
+                <li
+                  v-for="doc in request.documents"
+                  :key="doc.id"
+                  class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3"
+                >
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600"
+                    aria-hidden="true"
+                  >
+                    <File :size="18" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-semibold text-slate-900 truncate">{{ doc.name || doc.fileName }}</p>
+                    <p class="text-[11px] text-slate-500 truncate">
+                      {{ doc.fileName }}
+                      <span v-if="doc.size"> · {{ formatFileSize(doc.size) }}</span>
+                      <span v-if="doc.mimeType && doc.mimeType !== 'application/octet-stream'">
+                        · {{ doc.mimeType }}
+                      </span>
+                    </p>
+                  </div>
+                  <a
+                    v-if="doc.url"
+                    :href="doc.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="sheet-btn sheet-btn--primary shrink-0"
+                    :download="doc.fileName || undefined"
+                  >
+                    Ouvrir
+                  </a>
+                  <span v-else class="text-[11px] text-slate-400 shrink-0">Sans lien</span>
+                </li>
+              </ul>
+              <p v-else class="text-sm text-slate-500 text-center py-6">
+                Aucune pièce jointe sur ce dossier.
+              </p>
+            </div>
+          </section>
+
           <!-- Historique -->
           <section class="sheet overflow-hidden">
             <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-3.5 bg-slate-50/70">
@@ -324,6 +378,7 @@ import {
   Circle,
   Clock,
   FileText,
+  File,
   Hash,
   History,
   IdCard,
@@ -331,6 +386,7 @@ import {
   Mail,
   MapPin,
   MessageSquare,
+  Paperclip,
   Phone,
   User,
   UserRound,
@@ -424,6 +480,13 @@ const authorPremium = computed(() => cachedProfile.value?.premium === true)
 const categoryLabel = computed(() =>
   (request.value?.categorySlug ?? '').replace(/-/g, ' ') || '-',
 )
+
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes < 0) return ''
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
 
 const authorInitials = computed(() => {
   const parts = authorName.value.trim().split(/\s+/).filter(Boolean)

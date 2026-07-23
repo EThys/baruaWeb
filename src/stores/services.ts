@@ -9,6 +9,7 @@ import { deviseCodeById } from '@/data/devises'
 import { DEFAULT_PUBLIC_DOCUMENT_TYPES } from '@/data/publicDocumentTypes'
 import { groupServicesByDocument } from '@/utils/serviceCatalog'
 import { formatOrganismPlaceName } from '@/utils/organismDisplay'
+import { findMockServiceSchema } from '@/utils/mockServiceForm'
 
 function isPlaceholderApiText(value: string | null | undefined): boolean {
   if (!value) return true
@@ -73,6 +74,9 @@ export const useServicesStore = defineStore('services', () => {
     const svcDesc = isPlaceholderApiText(svc.description) ? '' : (svc.description ?? '')
     const description = svcDesc || docDesc || 'Démarche disponible sur la plateforme Barua.'
     const price = svc.price > 0 ? svc.price : undefined
+    // Schémas fake (src/data/services.ts) pour tester l’étape « dossier » —
+    // ignorés à l’envoi API (voir NewRequestPage.submit).
+    const mockSchema = findMockServiceSchema(doc.title, slug)
 
     return {
       id: `sd-${svc.serviceDocumentaireId}`,
@@ -86,14 +90,14 @@ export const useServicesStore = defineStore('services', () => {
       cost: price,
       currency: deviseCodeById(svc.deviseId),
       difficulty: 'easy',
-      requiredDocuments: [],
+      requiredDocuments: mockSchema.requiredDocuments,
       steps: [
         { step: 1, title: 'Sélectionnez le service', description: 'Ouvrez la fiche et lisez les informations.' },
         { step: 2, title: 'Préparez vos pièces', description: 'Rassemblez les documents requis selon votre situation.' },
         { step: 3, title: 'Soumettez la demande', description: 'Complétez le formulaire et envoyez votre dossier.' },
         { step: 4, title: 'Suivez le traitement', description: 'Recevez une notification dès que le document est prêt.' },
       ],
-      formFields: [],
+      formFields: mockSchema.formFields,
       tags: [
         typeName,
         doc.title,

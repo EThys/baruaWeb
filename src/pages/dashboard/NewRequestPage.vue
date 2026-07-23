@@ -81,6 +81,9 @@
           <!-- Step 2 -->
           <div v-show="step === 2" class="space-y-5">
             <h2 class="font-semibold text-gray-800">Informations du dossier</h2>
+            <p class="text-xs text-slate-500 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+              Champs de démonstration (schéma test) — non transmis à l’API à l’envoi.
+            </p>
             <div v-for="field in service.formFields" :key="field.id">
               <label :for="field.id" class="label-text">
                 {{ field.label }}
@@ -336,18 +339,13 @@ async function submit() {
 
   submitting.value = true
   try {
-    const commentaireParts = [
-      ...Object.entries(dossier)
-        .filter(([, v]) => v != null && String(v).trim() !== '')
-        .map(([k, v]) => `${k}: ${String(v)}`),
-    ]
+    // Les champs fake du dossier (étape 2) sont UI-only — non envoyés à l’API.
     const newReq = await reqStore.submitDemandeProcuration(
       {
         serviceDocumentaireId: sdId,
         fullName: identity.fullName.trim(),
         numberIdentity: identity.nationalId.trim(),
         phone: identity.phone.trim() || undefined,
-        commentaire: commentaireParts.length ? commentaireParts.join('\n') : undefined,
       },
       files.value,
       {

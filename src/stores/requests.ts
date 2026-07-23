@@ -281,6 +281,9 @@ export const useRequestsStore = defineStore('requests', () => {
       if (prev && prev.statusHistory.length > next.statusHistory.length) {
         next.statusHistory = prev.statusHistory
       }
+      if (prev?.documents?.length && !next.documents?.length) {
+        next.documents = prev.documents
+      }
       if (prev?.applicantName && !next.applicantName) {
         next.applicantName = prev.applicantName
         next.applicantEmail = prev.applicantEmail ?? next.applicantEmail
@@ -446,7 +449,15 @@ export const useRequestsStore = defineStore('requests', () => {
           email: authUser?.email,
           commentaire: fields.commentaire,
         },
-        documents: [],
+        documents: files.map((f, i) => ({
+          id: `local-${Date.now()}-${i}`,
+          name: f.name,
+          fileName: f.name,
+          size: f.size,
+          mimeType: f.type || 'application/octet-stream',
+          uploadedAt: new Date().toISOString(),
+          url: URL.createObjectURL(f),
+        })),
         statusHistory: [{ status: 'soumise', date: new Date().toISOString(), note: 'Demande soumise' }],
         submittedAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
@@ -463,6 +474,17 @@ export const useRequestsStore = defineStore('requests', () => {
       if (!mapped.applicantName && fields.fullName) mapped.applicantName = fields.fullName
       if (!mapped.applicantPhone && fields.phone) mapped.applicantPhone = fields.phone
       if (!mapped.applicantIdentity && fields.numberIdentity) mapped.applicantIdentity = fields.numberIdentity
+      if (!mapped.documents?.length && files.length) {
+        mapped.documents = files.map((f, i) => ({
+          id: `local-${Date.now()}-${i}`,
+          name: f.name,
+          fileName: f.name,
+          size: f.size,
+          mimeType: f.type || 'application/octet-stream',
+          uploadedAt: new Date().toISOString(),
+          url: URL.createObjectURL(f),
+        }))
+      }
     }
     if (meta?.serviceName) mapped.serviceName = meta.serviceName
     if (meta?.categorySlug) mapped.categorySlug = meta.categorySlug
